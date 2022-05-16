@@ -45,7 +45,7 @@ impl Trie {
     }
   }
 
-  pub fn from(word_list: Vec<&str>) -> Trie {
+  pub fn from(word_list: Vec<String>) -> Trie {
     let mut trie = Trie::new();
 
     for word in word_list.iter() {
@@ -91,7 +91,7 @@ impl Trie {
     }
   }
 
-  pub fn find(&mut self, value: &str) -> bool {
+  pub fn find(&mut self, value: &str, is_word: &mut bool) -> bool {
     let chars: Vec<char> = value.chars().collect();
     let mut current_node = &mut self.root_node;
 
@@ -101,6 +101,10 @@ impl Trie {
       } else {
         current_node = current_node.children.get_mut(&chars[i]).unwrap();
       }
+    }
+
+    if current_node.is_word {
+      *is_word = true;
     }
 
     // if we've gone through the Trie and found every character of the word, then the Trie contains the word
