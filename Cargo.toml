@@ -1,8 +1,13 @@
 [package]
 name = "roggle"
 description = "A Boggle solver written in Rust!"
+authors = ["Parker Rowe <parker@prowe.ca>"]
+repository = "https://github.com/parkuman/roggle"
+documentation = "https://docs.rs/roggle"
+keywords = ["boggle", "solver", "roggle"]
+readme = "README.md"
 license = "MIT"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2021"
 
 [dependencies]
