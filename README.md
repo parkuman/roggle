@@ -1,12 +1,11 @@
 # roggle
 
-A Boggle solver written in Rust! This is still very much a WIP while I actually learn how to use Rust.
+A Boggle solver written in Rust! Simply pass in an N x M board as a string with rows separated by spaces. For the Qu tile simply put `q` as the letter.
 
 # Example Usage
 
 ```rust
-extern crate roggle;
-
+use roggle;
 use std::collections::HashSet;
 
 fn main() {

@@ -12,7 +12,7 @@ const NEIGHBOURS: [(i16, i16); 8] = [
   (1, 1),
 ];
 
-fn find_words<'a>(
+fn find_words(
   board: &Board,
   x: i16,
   y: i16,
@@ -36,10 +36,11 @@ fn find_words<'a>(
   }
 
   // println!("✅ the prefix \"{}\" is in the trie!", current_string);
-
   if is_word {
     // println!("\tAND its a full word!");
-    found_words.insert(current_string.to_string());
+
+    // insert the word, and replace q with qu to finish the handling of the qu tile
+    found_words.insert(current_string.to_string().replace("q", "qu"));
   }
 
   for (n_x, n_y) in NEIGHBOURS.iter() {
@@ -121,32 +122,12 @@ impl Board {
     let mut visited_positions;
     let mut current_string;
 
-    // for x in 0..self.width {
-    //   for y in 0..self.height {
-    //     println!("========| ({}, {}) - {} |========", x, y, self.get((x, y)));
-
-    //     for (n_x, n_y) in NEIGHBOURS.iter() {
-    //       let new_x = x + n_x;
-    //       let new_y = y + n_y;
-
-    //       let in_board = within_board(self, (new_x, new_y));
-    //       print!("({}, {}) : {}", new_x, new_y, in_board,);
-
-    //       if in_board {
-    //         print!(" - \"{}\"", self.get((new_x, new_y)));
-    //       }
-
-    //       println!();
-    //     }
-    //   }
-    // }
-
     // hit each letter in the board and call find_words on it
     for x in 0..self.width {
       for y in 0..self.height {
         // reset the following for each new root letter we start at
         current_string = self.get((x, y)).to_string();
-        visited_positions = Vec::new();
+        visited_positions = Vec::from([(x, y)]);
 
         let words_for_char = find_words(
           self,

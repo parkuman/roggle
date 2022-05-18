@@ -99,7 +99,7 @@ impl Trie {
 
     for i in 0..chars.len() {
       if !current_node.children.contains_key(&chars[i]) {
-        return false; // if the node's children doesn't contain the char we need, then it can't possibly contain the whole word
+        return false; // if the node's children don't contain the char we need, then it can't possibly contain the whole word
       } else {
         current_node = current_node.children.get_mut(&chars[i]).unwrap();
       }

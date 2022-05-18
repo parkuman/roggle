@@ -7,7 +7,7 @@ documentation = "https://docs.rs/roggle"
 keywords = ["boggle", "solver", "roggle"]
 readme = "README.md"
 license = "MIT"
-version = "0.5.2"
+version = "0.6.0"
 edition = "2021"
 
 [dependencies]
