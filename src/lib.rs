@@ -48,6 +48,8 @@ pub fn solve(board_string: &str) -> Vec<String> {
   let word_list = include_str!("../word_lists/words_alpha.txt")
     .split("\r\n")
     .map(|str| str.to_string())
+    .filter(|ref line| line.len() >= 3) // filter out words less than 3 letters
+    // TODO: replace qu with q and handle it later
     .collect();
 
   let mut trie = Trie::from(word_list);
