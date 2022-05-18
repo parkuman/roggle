@@ -1,4 +1,5 @@
 use crate::trie::Trie;
+use std::collections::HashSet;
 
 const NEIGHBOURS: [(i16, i16); 8] = [
   (-1, -1),
@@ -18,8 +19,8 @@ fn find_words<'a>(
   visited_positions: &mut Vec<(i16, i16)>,
   current_string: &mut String,
   trie: &mut Trie,
-) -> Vec<String> {
-  let mut found_words: Vec<String> = Vec::new();
+) -> HashSet<String> {
+  let mut found_words: HashSet<String> = HashSet::new();
   let mut is_word = false;
 
   // if the current working word is not in the trie, return early.
@@ -38,7 +39,7 @@ fn find_words<'a>(
 
   if is_word {
     // println!("\tAND its a full word!");
-    found_words.push(current_string.to_string());
+    found_words.insert(current_string.to_string());
   }
 
   for (n_x, n_y) in NEIGHBOURS.iter() {
@@ -47,19 +48,13 @@ fn find_words<'a>(
 
     // if the neighbour is within the board and hasn't already been visited, recurse, searching the neighbour for words
     if within_board(board, (new_x, new_y)) && !visited_positions.contains(&(new_x, new_y)) {
-      current_string.push(board.get((new_x, new_y)));
+      current_string.push(board.get((new_x, new_y))); // add the character to current string and search this new string
 
       let last_visited_idx = visited_positions.len();
       visited_positions.push((new_x, new_y));
 
-      found_words.extend(find_words(
-        board,
-        new_x,
-        new_y,
-        visited_positions,
-        current_string, // TODO: PLUS ANOTHER CHAR
-        trie,
-      ));
+      let words_for_char = find_words(board, new_x, new_y, visited_positions, current_string, trie);
+      found_words.extend(words_for_char);
 
       visited_positions.remove(last_visited_idx); // remove the added visited position
     }
@@ -120,9 +115,11 @@ impl Board {
     println!("\nwidth: {}\nheight: {}", self.width, self.height);
   }
 
-  pub fn solve(&self, trie: &mut Trie) -> Vec<String> {
+  pub fn solve(&self, trie: &mut Trie) -> HashSet<String> {
     println!("\nSOLVING...");
-    let mut words: Vec<String> = Vec::new();
+    let mut words: HashSet<String> = HashSet::new();
+    let mut visited_positions;
+    let mut current_string;
 
     // for x in 0..self.width {
     //   for y in 0..self.height {
@@ -144,9 +141,6 @@ impl Board {
     //   }
     // }
 
-    let mut visited_positions;
-    let mut current_string;
-
     // hit each letter in the board and call find_words on it
     for x in 0..self.width {
       for y in 0..self.height {
@@ -154,14 +148,15 @@ impl Board {
         current_string = self.get((x, y)).to_string();
         visited_positions = Vec::new();
 
-        words.extend(find_words(
+        let words_for_char = find_words(
           self,
           x,
           y,
           &mut visited_positions,
           &mut current_string,
           trie,
-        ));
+        );
+        words.extend(words_for_char);
       }
     }
 

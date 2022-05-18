@@ -2,6 +2,7 @@ mod board;
 mod trie;
 
 use board::Board;
+use std::collections::HashSet;
 use std::process::exit;
 use trie::Trie;
 
@@ -79,7 +80,7 @@ fn validate_board(board_input: &str) -> &str {
   board_input
 }
 
-pub fn solve(input_board: &str) -> Vec<String> {
+pub fn solve(input_board: &str) -> HashSet<String> {
   let board_string = input_board.trim();
   validate_board(board_string);
 
