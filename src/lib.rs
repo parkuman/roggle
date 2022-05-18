@@ -43,14 +43,18 @@ fn lines_from_file(filename: impl AsRef<Path>) -> Vec<String> {
   }
 }
 
-pub fn solve(board_string: &str) -> &str {
-  let word_list = lines_from_file("word_lists/words_alpha.txt");
+pub fn solve(board_string: &str) -> Vec<String> {
+  // let word_list = lines_from_file("word_lists/words_alpha.txt");
+  let word_list = include_str!("../word_lists/words_alpha.txt")
+    .split("\r\n")
+    .map(|str| str.to_string())
+    .collect();
+
   let mut trie = Trie::from(word_list);
 
   let board = Board::from(board_string);
-  board.print();
 
-  println!("solutionset: {:?}", board.solve(&mut trie));
+  let solution_set = board.solve(&mut trie);
 
-  board_string
+  solution_set
 }

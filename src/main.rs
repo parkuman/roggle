@@ -51,5 +51,5 @@ fn main() {
 
   let board = validate_board(&args[1].trim());
 
-  roggle::solve(board);
+  println!("solutions: {:?}", roggle::solve(board));
 }

@@ -19,26 +19,25 @@ fn find_words<'a>(
   current_string: &mut String,
   trie: &mut Trie,
 ) -> Vec<String> {
-  println!("on pos: ({}, {})", x, y);
   let mut found_words: Vec<String> = Vec::new();
   let mut is_word = false;
 
   // if the current working word is not in the trie, return early.
   // otherwise add our current working word to our found_words list
   if !trie.find(current_string, &mut is_word) {
-    println!(
-      "❌ the prefix \"{}\" was not found in the trie, exiting this recursion",
-      current_string
-    );
+    // println!(
+    //   "❌ the prefix \"{}\" was not found in the trie, exiting this recursion",
+    //   current_string
+    // );
     current_string.pop(); // pop off the bad letter we added
 
     return found_words;
   }
 
-  println!("✅ the prefix \"{}\" is in the trie!", current_string);
+  // println!("✅ the prefix \"{}\" is in the trie!", current_string);
 
   if is_word {
-    println!("\tAND its a full word!");
+    // println!("\tAND its a full word!");
     found_words.push(current_string.to_string());
   }
 

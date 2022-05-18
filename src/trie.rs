@@ -48,10 +48,12 @@ impl Trie {
   pub fn from(word_list: Vec<String>) -> Trie {
     let mut trie = Trie::new();
 
+    print!("Building Trie... ");
     for word in word_list.iter() {
-      println!("Inserting {}...", word);
+      // println!("Inserting {}...", word);
       trie.insert(word);
     }
+    println!("Done!");
 
     return trie;
   }
@@ -82,7 +84,7 @@ impl Trie {
     // if we didn't finish the whole word, insert the rest of the characters and set the last node's "is_word" to true
     } else {
       for i in last_match_index..chars.len() {
-        println!("{} -> {}", current_node.value.unwrap_or_default(), chars[i]);
+        // println!("{} -> {}", current_node.value.unwrap_or_default(), chars[i]);
         current_node.insert_value(chars[i], false);
         current_node = current_node.children.get_mut(&chars[i]).unwrap(); // increment to the next node (the new one we just inserted)
       }
