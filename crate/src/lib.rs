@@ -117,6 +117,7 @@ pub fn solve(input_board: &str) -> HashSet<String> {
 
   let mut trie = Trie::from(word_list);
   let board = Board::from(board_string);
+  board.print();
 
   let solution_set = board.solve(&mut trie);
   solution_set
