@@ -2,12 +2,12 @@
 name = "roggle"
 description = "A Boggle solver written in Rust!"
 authors = ["Parker Rowe <parker@prowe.ca>"]
-repository = "https://github.com/parkuman/roggle/tree/main/crate"
+repository = "https://github.com/parkuman/roggle/tree/main/crate/"
 documentation = "https://docs.rs/roggle"
 keywords = ["boggle", "solver", "roggle"]
 readme = "README.md"
 license = "MIT"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 
 [dependencies]
