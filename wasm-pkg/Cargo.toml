@@ -1,9 +1,9 @@
 [package]
 name = "roggle"
 description = "A Rust Boggle solver compiled to WebAssembly!"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Parker Rowe <parker@prowe.ca>"]
-repository = "https://github.com/parkuman/roggle"
+repository = "https://github.com/parkuman/roggle/tree/main/wasm-pkg"
 keywords = ["boggle", "solver", "roggle", "wasm", "webassebly"]
 readme = "README.md"
 license = "MIT"
