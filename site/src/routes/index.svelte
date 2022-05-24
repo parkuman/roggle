@@ -168,6 +168,12 @@
 		align-items: center;
 	}
 
+	form {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
 	header {
 		margin-bottom: 100px;
 	}
