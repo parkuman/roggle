@@ -22,6 +22,7 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"roggle": "^0.3.3"
+		"roggle": "^0.3.3",
+		"wasm-feature-detect": "^1.2.11"
 	}
 }

@@ -1,10 +1,12 @@
 <script>
 	import roggle from "$lib/services/roggle";
+	import { onMount } from "svelte";
 
 	let board;
 	let solving = false;
 	let solutions;
 	let error;
+	let wasmSupported = true;
 
 	let rows = 4;
 	let cols = 4;
@@ -86,12 +88,20 @@
 
 		solving = false;
 	}
+
+	onMount(() => {
+		wasmSupported = !(typeof WebAssembly === "undefined");
+		if (!wasmSupported) {
+			error = "Sorry! Your browser does not support the features needed to run Roggle";
+		}
+	});
 </script>
 
 <main>
 	<header>
-		<img src="https://prowe.ca/images/projects/roggle/roggle.png" alt="roggle logo" width="200" />
+		<img src="/images/roggle.png" alt="roggle logo" width="200" />
 	</header>
+
 	<form on:submit|preventDefault={solveBoard}>
 		<p>Please input the N x M board as rows separated by spaces. For qu tile just put q.</p>
 		<input type="text" style:margin-bottom="20px" bind:value={board} />
@@ -145,7 +155,9 @@
 			</div>
 		</div> -->
 
-		<button disabled={solving} type="submit">{solving ? "Solving..." : "Solve"}</button>
+		<button disabled={solving || !wasmSupported} type="submit"
+			>{solving ? "Solving..." : "Solve"}</button
+		>
 	</form>
 
 	{#if error}

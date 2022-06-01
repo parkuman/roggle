@@ -20,7 +20,7 @@ class Roggle {
 
 	load() {
 		this._status = {};
-		this.worker = new Worker("/js/roggle.worker.js", { type: "module" }); // initialize a module web worker to allow for es2015 imports
+		this.worker = new Worker("/js/roggle/roggle.worker.js", { type: "module" }); // initialize a module web worker to allow for es2015 imports
 
 		this.worker.onmessage = (e) => {
 			if (e.data.error) {
