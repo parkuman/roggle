@@ -1,6 +1,5 @@
 <script>
-	import { onMount } from "svelte";
-	import init, { solve } from "../../node_modules/roggle/roggle";
+	import roggle from "$lib/services/roggle";
 
 	let board;
 	let solving = false;
@@ -33,52 +32,48 @@
 		return false;
 	}
 
-	function solveBoard() {
-		try {
-			solutions = null;
-			solving = true;
-			// TODO: validate board
-			console.log("Solving...");
-			const start = new Date();
-			solutions = solve(board)
-				.split(", ")
-				.sort()
-				.map((word) => {
-					let points;
-					switch (word.length) {
-						case 3:
-						case 4:
-							points = 1;
-							break;
-						case 5:
-							points = 2;
-							break;
-						case 6:
-							points = 3;
-							break;
-						case 7:
-							points = 5;
-							break;
-						default: // 8 or higher
-							points = 11;
-					}
+	async function solveBoard() {
+		solutions = null;
+		solving = true;
+		// TODO: validate board
+		console.log("Solving...");
+		const start = new Date();
 
-					return { word, points };
-				});
-			const end = new Date();
-			console.log("completed in", (end - start) / 1000, "seconds");
-		} catch (e) {
-			error =
-				"Error while solving, please make sure the board is N x M and contains only english alphabet characters";
-			console.error(e, "error while solving!");
-		}
+		const res = await roggle.solve(board).catch((e) => {
+			console.error("ERROR!!!!!");
+		});
+
+		solutions = res.data.solutions
+			.split(", ")
+			.sort()
+			.map((word) => {
+				let points;
+				switch (word.length) {
+					case 3:
+					case 4:
+						points = 1;
+						break;
+					case 5:
+						points = 2;
+						break;
+					case 6:
+						points = 3;
+						break;
+					case 7:
+						points = 5;
+						break;
+					default: // 8 or higher
+						points = 11;
+				}
+
+				return { word, points };
+			});
+
+		const end = new Date();
+		console.log("completed in", (end - start) / 1000, "seconds");
+
 		solving = false;
 	}
-
-	onMount(async () => {
-		await init();
-		console.log("Done loading roggle wasm module");
-	});
 </script>
 
 <main>
@@ -143,9 +138,6 @@
 
 	{#if error}
 		<p style:color="red">{error}</p>
-	{/if}
-	{#if solving}
-		<p>solving...</p>
 	{/if}
 	{#if !solving && solutions}
 		<tbody>
