@@ -17,7 +17,7 @@
 
 	// $: console.log(boxes);
 	// $: board = [].concat(boxes.map((row) => row.join("") + " ")).join("");
-	$: console.log(board);
+	// $: console.log(board);
 
 	function rebuildBoard() {
 		boxes = Array(rows).fill(Array(cols).fill(""));
@@ -35,39 +35,51 @@
 	async function solveBoard() {
 		solutions = null;
 		solving = true;
+		error = null;
 		// TODO: validate board
 		console.log("Solving...");
 		const start = new Date();
 
-		const res = await roggle.solve(board).catch((e) => {
-			console.error("ERROR!!!!!");
-		});
+		try {
+			const res = await roggle.solve(board);
 
-		solutions = res.data.solutions
-			.split(", ")
-			.sort()
-			.map((word) => {
-				let points;
-				switch (word.length) {
-					case 3:
-					case 4:
-						points = 1;
-						break;
-					case 5:
-						points = 2;
-						break;
-					case 6:
-						points = 3;
-						break;
-					case 7:
-						points = 5;
-						break;
-					default: // 8 or higher
-						points = 11;
-				}
+			if (res.data.solutions === "") {
+				solutions = [];
+			} else {
+				solutions = res.data.solutions
+					.split(", ")
+					.sort()
+					.map((word) => {
+						let points;
+						switch (word.length) {
+							case 0:
+								points = 0;
+								word = "";
+								break;
+							case 3:
+							case 4:
+								points = 1;
+								break;
+							case 5:
+								points = 2;
+								break;
+							case 6:
+								points = 3;
+								break;
+							case 7:
+								points = 5;
+								break;
+							default: // 8 or higher
+								points = 11;
+						}
 
-				return { word, points };
-			});
+						return { word, points };
+					});
+			}
+		} catch (err) {
+			console.error("ERROR:", err);
+			error = err;
+		}
 
 		const end = new Date();
 		console.log("completed in", (end - start) / 1000, "seconds");
@@ -81,7 +93,7 @@
 		<img src="https://prowe.ca/images/projects/roggle/roggle.png" alt="roggle logo" width="200" />
 	</header>
 	<form on:submit|preventDefault={solveBoard}>
-		<pre>Please input the N x M board as rows separated by spaces. For qu tile just put q.</pre>
+		<p>Please input the N x M board as rows separated by spaces. For qu tile just put q.</p>
 		<input type="text" style:margin-bottom="20px" bind:value={board} />
 
 		<!-- <div class="board">
@@ -141,11 +153,15 @@
 	{/if}
 	{#if !solving && solutions}
 		<tbody>
-			{#each solutions as { word, points }}
-				<tr>
-					<p>{word} ({points} pt{points > 1 ? "s" : ""})</p>
-				</tr>
-			{/each}
+			{#if solutions.length === 0}
+				<p>no solutions!</p>
+			{:else}
+				{#each solutions as { word, points }}
+					<tr>
+						<p>{word} ({points} pt{points > 1 ? "s" : ""})</p>
+					</tr>
+				{/each}
+			{/if}
 		</tbody>
 	{/if}
 </main>

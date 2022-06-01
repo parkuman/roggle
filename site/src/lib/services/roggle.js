@@ -8,7 +8,6 @@ class Roggle {
 		return new Promise((res, rej) => {
 			let interval = setInterval(() => {
 				const status = this._status[msg];
-				console.log(status);
 				if (status[0] === "done") res(status[1]);
 				if (status[0] === "error") rej(status[1]);
 				if (status[0] !== "loading") {
@@ -23,8 +22,14 @@ class Roggle {
 		this._status = {};
 		this.worker = new Worker("/js/roggle.worker.js", { type: "module" }); // initialize a module web worker to allow for es2015 imports
 
-		this.worker.onmessage = (e) => (this._status[e.data.msg] = ["done", e]);
-		this.worker.onerror = (e) => (this._status[e.data.msg] = ["error", e]);
+		this.worker.onmessage = (e) => {
+			if (e.data.error) {
+				return (this._status[e.data.msg] = ["error", e.data.error]);
+			}
+
+			return (this._status[e.data.msg] = ["done", e]);
+		};
+		this.worker.onerror = (e) => (this._status[e.message] = ["error", e.message]);
 	}
 
 	solve(board) {
