@@ -1,4 +1,4 @@
-class CV {
+class ImageProcessing {
 	/**
 	 * We will use this method privately to communicate with the worker and
 	 * return a promise with the result of the event. This way we can call
@@ -31,7 +31,7 @@ class CV {
 	 */
 	load() {
 		this._status = {};
-		this.worker = new Worker("/js/opencv/opencv.worker.js"); // load worker
+		this.worker = new Worker("/js/image.worker.js"); // load worker
 
 		// Capture events and save [status, event] inside the _status object
 		this.worker.onmessage = (e) => (this._status[e.data.msg] = ["done", e]);
@@ -49,4 +49,4 @@ class CV {
 }
 
 // Export the same instant everywhere
-export default new CV();
+export default new ImageProcessing();

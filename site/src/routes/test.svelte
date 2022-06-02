@@ -1,6 +1,6 @@
 <script>
 	import roggle from "$lib/services/roggle";
-	import cv from "$lib/services/cv";
+	import imageProcessing from "$lib/services/imageProcessing";
 	import { onMount } from "svelte";
 
 	const maxVideoSize = 200;
@@ -44,12 +44,6 @@
 		return false;
 	}
 
-	async function loadOpenCV() {
-		console.log("Loading OpenCV...");
-		await cv.load();
-		console.log("Done loading OpenCV!");
-	}
-
 	async function processImage() {
 		const canvasCtx = canvasEl.getContext("2d");
 
@@ -60,7 +54,7 @@
 		memCanvasCtx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
 
 		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
-		const processedImage = await cv.imageProcessing(image);
+		const processedImage = await imageProcessing.imageProcessing(image);
 
 		canvasCtx.putImageData(processedImage.data.payload, 0, 0);
 	}
@@ -126,7 +120,7 @@
 			error = "Sorry! Your browser does not support the features needed to run Roggle";
 		}
 
-		await cv.load();
+		await imageProcessing.load();
 
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -148,7 +142,6 @@
 		<canvas bind:this={canvasEl} width={canvas.width} height={canvas.height} />
 	</div>
 
-	<!-- <button on:click={loadOpenCV}>load opencv</button> -->
 	<button on:click={processImage}>process image</button>
 
 	<form on:submit|preventDefault={solveBoard}>

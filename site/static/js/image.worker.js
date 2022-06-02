@@ -5,10 +5,16 @@
  */
 
 const paths = {
-	wasm: "./wasm/opencv.js",
-	threads: "./threads/opencv.js",
-	simd: "./wasm/opencv.js", // TODO: use SIMD
-	threadsSimd: "./threads_simd/opencv.js"
+	openCvWasm: "./opencv/wasm/opencv.js",
+	openCvThreads: "./opencv/threads/opencv.js",
+	openCvSimd: "./opencv/wasm/opencv.js", // TODO: use SIMD
+	openCvThreadsSimd: "./opencv/threads_simd/opencv.js",
+	openCvWasmFeatureDetect: "./opencv/wasm-feature-detect.js",
+	tfjs: "./tensorflow/tfjs.min.js",
+	tfjsWasmBackend: "./tensorflow/tfjs-backend-wasm.min.js",
+	tfjsWasm: "./tensorflow/tfjs-backend-wasm.wasm",
+	tfjsWasmSimd: "./tensorflow/tfjs-backend-wasm-simd.wasm",
+	tfjsWasmThreadedSimd: "./tensorflow/tfjs-backend-wasm-threaded-simd.wasm"
 };
 
 /**
@@ -16,6 +22,10 @@ const paths = {
  *  wasm features are enabled in the browser, just moved to a function inside here.
  *
  * @returns the path to the correct opencv script to use depending on the current browser's features
+ *
+ * 					simd - single instruction multiple data
+ * 					multithreading - multithreading using WASM
+ * 					simd + threads - browser supports both for WebAssembly
  */
 async function getOpenCV() {
 	let OPENCV_URL = "";
@@ -24,20 +34,20 @@ async function getOpenCV() {
 	let threadsPath = "";
 	let threadsSimdPath = "";
 
-	if ("wasm" in paths) {
-		wasmPath = paths["wasm"];
+	if ("openCvWasm" in paths) {
+		wasmPath = paths["openCvWasm"];
 	}
 
-	if ("threads" in paths) {
-		threadsPath = paths["threads"];
+	if ("openCvThreads" in paths) {
+		threadsPath = paths["openCvThreads"];
 	}
 
-	if ("simd" in paths) {
-		simdPath = paths["simd"];
+	if ("openCvSimd" in paths) {
+		simdPath = paths["openCvSimd"];
 	}
 
-	if ("threadsSimd" in paths) {
-		threadsSimdPath = paths["threadsSimd"];
+	if ("openCvThreadsSimd" in paths) {
+		threadsSimdPath = paths["openCvThreadsSimd"];
 	}
 
 	let wasmSupported = !(typeof WebAssembly === "undefined");
@@ -99,33 +109,14 @@ async function getOpenCV() {
 	return OPENCV_URL;
 }
 
-/**
- *  Here we will check from time to time if we can access the OpenCV
- *  functions. We will return in a callback if it's been resolved
- *  well (true) or if there has been a timeout (false).
- */
-function waitForOpencv(callbackFn, waitTimeMs = 30000, stepTimeMs = 100) {
-	if (cv.Mat) callbackFn(true);
-
-	let timeSpentMs = 0;
-	const interval = setInterval(() => {
-		const limitReached = timeSpentMs > waitTimeMs;
-		if (cv.Mat || limitReached) {
-			clearInterval(interval);
-			return callbackFn(!limitReached);
-		} else {
-			timeSpentMs += stepTimeMs;
-		}
-	}, stepTimeMs);
-}
-
 function imageProcessing({ msg, payload }) {
 	const img = cv.matFromImageData(payload);
-	let result = new cv.Mat();
 
-	// This converts the image to a greyscale.
-	cv.cvtColor(img, result, cv.COLOR_BGR2GRAY);
-	postMessage({ msg, payload: imageDataFromMat(result) });
+	// convert image to grayscale and adaptively threshold to hopefully show lines separating objects
+	cv.cvtColor(img, img, cv.COLOR_BGR2GRAY);
+	cv.adaptiveThreshold(img, img, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 10);
+
+	postMessage({ msg, payload: imageDataFromMat(img) });
 }
 
 /**
@@ -166,18 +157,27 @@ onmessage = async function (e) {
 	switch (e.data.msg) {
 		case "load": {
 			try {
-				self.importScripts("./wasm-feature-detect.js");
+				// load opencv depending on wasm features available
+				self.importScripts(paths.openCvWasmFeatureDetect);
 				const opencvScript = await getOpenCV();
 				self.importScripts(opencvScript);
+				cv = await cv;
 
-				cv = await cv; // await the promise
+				// load tensorflow scripts
+				self.importScripts(paths.tfjs);
+				self.importScripts(paths.tfjsWasmBackend);
+				tf.wasm.setWasmPaths({
+					"tfjs-backend-wasm.wasm": paths.tfjsWasm,
+					"tfjs-backend-wasm-simd.wasm": paths.tfjsWasmSimd,
+					"tfjs-backend-wasm-threaded-simd.wasm": paths.tfjsWasmThreadedSimd
+				});
+				tf.setBackend("wasm");
+				await tf.ready();
 			} catch (err) {
 				throw new Error(err);
 			}
-			waitForOpencv(function (success) {
-				if (success) postMessage({ msg: e.data.msg });
-				else throw new Error("Error loading OpenCV! Time limit expired", cv);
-			});
+
+			postMessage({ msg: e.data.msg });
 			break;
 		}
 		case "imageProcessing":
