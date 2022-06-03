@@ -60,7 +60,7 @@ async function getOpenCV() {
 
 	if (simdSupported && threadsSupported && threadsSimdPath != "") {
 		OPENCV_URL = threadsSimdPath;
-		console.log("The OpenCV.js with simd and threads optimization is loaded now");
+		console.log("Loading OpenCV.js with simd and threads optimization");
 	} else if (simdSupported && simdPath != "") {
 		if (threadsSupported && threadsSimdPath === "") {
 			console.log(
@@ -68,7 +68,7 @@ async function getOpenCV() {
 			);
 		}
 		OPENCV_URL = simdPath;
-		console.log("The OpenCV.js with simd optimization is loaded now.");
+		console.log("Loading OpenCV.js with simd optimization");
 	} else if (threadsSupported && threadsPath != "") {
 		if (simdSupported && threadsSimdPath === "") {
 			console.log(
@@ -76,7 +76,7 @@ async function getOpenCV() {
 			);
 		}
 		OPENCV_URL = threadsPath;
-		console.log("The OpenCV.js with threads optimization is loaded now");
+		console.log("Loading OpenCV.js with threads optimization");
 	} else if (wasmSupported && wasmPath != "") {
 		if (simdSupported && threadsSupported) {
 			console.log(
@@ -97,7 +97,7 @@ async function getOpenCV() {
 		}
 
 		OPENCV_URL = wasmPath;
-		console.log("The OpenCV.js for wasm is loaded now");
+		console.log("Loading OpenCV.js for wasm");
 	} else if (wasmSupported) {
 		console.log("The browser supports wasm, but the path of OpenCV.js for wasm is empty");
 	}
@@ -109,14 +109,50 @@ async function getOpenCV() {
 	return OPENCV_URL;
 }
 
-function imageProcessing({ msg, payload }) {
-	const img = cv.matFromImageData(payload);
+const EPSILON = 30;
+function imageProcessing({ msg, data }) {
+	const img = cv.matFromImageData(data);
 
 	// convert image to grayscale and adaptively threshold to hopefully show lines separating objects
 	cv.cvtColor(img, img, cv.COLOR_BGR2GRAY);
-	cv.adaptiveThreshold(img, img, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 10);
+	cv.adaptiveThreshold(img, img, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 33, 40);
+
+	// const contours = new cv.MatVector();
+	// const hierarchy = new cv.Mat();
+	// const poly = new cv.MatVector();
+	// const contourImgBuffer = cv.Mat.zeros(img.rows, img.cols, cv.CV_8UC3);
+
+	// // find all contours in the image and approximate them
+	// cv.findContours(img, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+	// for (let i = 0; i < contours.size(); ++i) {
+	// 	let approximatedContour = new cv.Mat();
+	// 	let cnt = contours.get(i);
+	// 	// You can try more different parameters
+	// 	cv.approxPolyDP(cnt, approximatedContour, EPSILON, true);
+	// 	poly.push_back(approximatedContour);
+
+	// 	cnt.delete();
+	// 	approximatedContour.delete();
+	// }
+
+	// // draw contours with random Scalar
+	// for (let i = 0; i < contours.size(); ++i) {
+	// 	let color = new cv.Scalar(
+	// 		Math.round(Math.random() * 255),
+	// 		Math.round(Math.random() * 255),
+	// 		Math.round(Math.random() * 255)
+	// 	);
+	// 	cv.drawContours(contourImgBuffer, poly, i, color, 1, 8, hierarchy, 0);
+	// }
 
 	postMessage({ msg, payload: imageDataFromMat(img) });
+
+	// cleanup
+	contourImgBuffer.delete();
+	img.delete();
+	poly.delete();
+	contours.delete();
+	hierarchy.delete();
 }
 
 /**
@@ -144,7 +180,6 @@ function imageDataFromMat(mat) {
 			throw new Error("Bad number of channels (Source image must have 1, 3 or 4 channels)");
 	}
 	const clampedArray = new ImageData(new Uint8ClampedArray(img.data), img.cols, img.rows);
-	img.delete();
 	return clampedArray;
 }
 

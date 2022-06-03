@@ -42,11 +42,10 @@ class ImageProcessing {
 		return this._dispatch({ msg: "load" });
 	}
 
-	imageProcessing(payload) {
+	imageProcessing(data) {
 		if (!this.worker) this.load();
-		return this._dispatch({ msg: "imageProcessing", payload });
+		return this._dispatch({ msg: "imageProcessing", data });
 	}
 }
 
-// Export the same instant everywhere
 export default new ImageProcessing();
