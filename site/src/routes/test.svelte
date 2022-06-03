@@ -10,6 +10,7 @@
 	let solutions;
 	let error;
 	let wasmSupported = true;
+	let loadingWorker = true;
 
 	let canvasEl;
 	let videoEl;
@@ -17,32 +18,6 @@
 		width: 480,
 		height: 480
 	};
-
-	let rows = 4;
-	let cols = 4;
-	let boxes = [
-		["", "", "", ""],
-		["", "", "", ""],
-		["", "", "", ""],
-		["", "", "", ""]
-	];
-
-	// $: console.log(boxes);
-	// $: board = [].concat(boxes.map((row) => row.join("") + " ")).join("");
-	// $: console.log(board);
-
-	function rebuildBoard() {
-		boxes = Array(rows).fill(Array(cols).fill(""));
-	}
-
-	function isValid(val, i, j) {
-		console.log(i, j);
-		if ((val.keyCode >= 65 && val.keyCode <= 90) || (val.keyCode >= 97 && val.keyCode <= 122)) {
-			boxes[i][j] = val.key;
-			return true;
-		}
-		return false;
-	}
 
 	async function processImage() {
 		const canvasCtx = canvasEl.getContext("2d");
@@ -120,15 +95,17 @@
 			error = "Sorry! Your browser does not support the features needed to run Roggle";
 		}
 
+		loadingWorker = true;
 		await imageProcessing.load();
+		loadingWorker = false;
 
-		try {
-			const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-			videoEl.srcObject = stream;
-			videoEl.play();
-		} catch (e) {
-			console.error(e, "camera access denied");
-		}
+		// try {
+		// 	const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+		// 	videoEl.srcObject = stream;
+		// 	videoEl.play();
+		// } catch (e) {
+		// 	console.error(e, "camera access denied");
+		// }
 	});
 </script>
 
@@ -138,65 +115,16 @@
 	</header>
 
 	<div class="cam-canvas">
-		<video bind:this={videoEl} width={canvas.width} height={canvas.height} />
+		<!-- <video bind:this={videoEl} width={canvas.width} height={canvas.height} /> -->
+		<img bind:this={videoEl} src="/images/board1.jpg" width={canvas.width} height={canvas.height} />
 		<canvas bind:this={canvasEl} width={canvas.width} height={canvas.height} />
 	</div>
 
-	<button on:click={processImage}>process image</button>
+	<button on:click={processImage} disabled={loadingWorker}>process image</button>
 
 	<form on:submit|preventDefault={solveBoard}>
 		<p>Please input the N x M board as rows separated by spaces. For qu tile just put q.</p>
 		<input type="text" style:margin-bottom="20px" bind:value={board} />
-
-		<!-- <div class="board">
-			<div class="grid">
-				{#each boxes as row, i}
-					<div class="row">
-						{#each row as column, j}
-							<input
-								class="grid-input"
-								type="text"
-								bind:value={boxes[i][j]}
-								on:keydown|preventDefault={(e) => isValid(e, i, j)}
-							/>
-						{/each}
-					</div>
-				{/each}
-				<div class="row-buttons">
-					<button
-						type="button"
-						on:click={() => {
-							rows = rows - 1;
-							rebuildBoard();
-						}}>-</button
-					>
-					<button
-						type="button"
-						on:click={() => {
-							rows = rows + 1;
-							rebuildBoard();
-						}}>+</button
-					>
-				</div>
-			</div>
-			<div class="col-buttons">
-				<button
-					type="button"
-					on:click={() => {
-						cols = cols - 1;
-						rebuildBoard();
-					}}>-</button
-				>
-				<button
-					type="button"
-					on:click={() => {
-						cols = cols + 1;
-						rebuildBoard();
-					}}>+</button
-				>
-			</div>
-		</div> -->
-
 		<button disabled={solving || !wasmSupported} type="submit"
 			>{solving ? "Solving..." : "Solve"}</button
 		>
@@ -225,7 +153,7 @@
 		width: 100%;
 		display: flex;
 		flex-direction: row;
-		justify-content: space-evenly;
+		justify-content: center;
 		align-items: center;
 	}
 
@@ -246,42 +174,5 @@
 
 	header {
 		margin-bottom: 100px;
-	}
-
-	.row-buttons {
-		display: flex;
-		flex-direction: row;
-	}
-
-	.row-buttons button {
-		width: 100%;
-	}
-
-	.col-buttons {
-		margin-left: 5px;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.col-buttons button {
-		height: 100%;
-	}
-
-	input.grid-input {
-		max-width: 1rem;
-	}
-
-	.board {
-		display: flex;
-		flex-direction: row;
-		margin-bottom: 20px;
-	}
-
-	button.right-plus {
-		margin-left: 5px;
-	}
-
-	input.grid-input:not(:last-child) {
-		margin: 0 5px 5px 0;
 	}
 </style>

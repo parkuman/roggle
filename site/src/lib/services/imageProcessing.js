@@ -34,7 +34,10 @@ class ImageProcessing {
 		this.worker = new Worker("/js/image.worker.js"); // load worker
 
 		// Capture events and save [status, event] inside the _status object
-		this.worker.onmessage = (e) => (this._status[e.data.msg] = ["done", e]);
+		this.worker.onmessage = (e) => {
+			console.log(e);
+			return (this._status[e.data.msg] = ["done", e]);
+		};
 		this.worker.onerror = (e) => {
 			console.error(e);
 			return (this._status.load = ["error", e]);

@@ -109,27 +109,74 @@ async function getOpenCV() {
 	return OPENCV_URL;
 }
 
-const EPSILON = 30;
 function imageProcessing({ msg, data }) {
-	const img = cv.matFromImageData(data);
+	const original = cv.matFromImageData(data);
+	let img = cv.matFromImageData(data);
 
-	// convert image to grayscale and adaptively threshold to hopefully show lines separating objects
+	// ========================== THRESHOLDING ==========================
+	// convert image to grayscale and adaptively threshold to clear up the image for later processing
 	cv.cvtColor(img, img, cv.COLOR_BGR2GRAY);
-	cv.adaptiveThreshold(img, img, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 33, 40);
+	cv.adaptiveThreshold(img, img, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 121, 60);
 
-	// const contours = new cv.MatVector();
-	// const hierarchy = new cv.Mat();
-	// const poly = new cv.MatVector();
-	// const contourImgBuffer = cv.Mat.zeros(img.rows, img.cols, cv.CV_8UC3);
+	// ========================== EDGE + LINE DETECTION ==========================
+	// canny edge detection to extract just the edges from the image
+	cv.Canny(img, img, 50, 100, 3, false);
 
-	// // find all contours in the image and approximate them
-	// cv.findContours(img, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+	const lines = new cv.Mat();
+	const houghLinesBuffer = cv.Mat.zeros(img.rows, img.cols, cv.CV_8UC3);
+	cv.HoughLines(img, lines, 1, Math.PI / 180, 90, 0, 0, 0, Math.PI);
+
+	// draw lines
+	for (let i = 0; i < lines.rows; ++i) {
+		let rho = lines.data32F[i * 2];
+		let theta = lines.data32F[i * 2 + 1];
+		let a = Math.cos(theta);
+		let b = Math.sin(theta);
+		let x0 = a * rho;
+		let y0 = b * rho;
+		let startPoint = { x: x0 - 1000 * b, y: y0 + 1000 * a };
+		let endPoint = { x: x0 + 1000 * b, y: y0 - 1000 * a };
+		cv.line(houghLinesBuffer, startPoint, endPoint, [255, 0, 0, 255]);
+	}
+
+	img = houghLinesBuffer;
+	cv.cvtColor(img, img, cv.COLOR_BGR2GRAY);
+
+	// ========================== CONTOURS ==========================
+	const EPSILON = 20;
+	const contours = new cv.MatVector();
+	const hierarchy = new cv.Mat();
+	const approximatedContours = new cv.MatVector();
+	const contourImgBuffer = cv.Mat.zeros(img.rows, img.cols, cv.CV_8UC3);
+
+	// find all contours in the image and approximate them
+	cv.findContours(img, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+
+	for (let i = 0; i < contours.size(); ++i) {
+		const contour = contours.get(i);
+		const approximatedContour = new cv.Mat();
+
+		cv.approxPolyDP(contour, approximatedContour, EPSILON, true);
+
+		if (approximatedContour.size().height === 4) {
+			let color = new cv.Scalar(
+				Math.round(Math.random() * 255),
+				Math.round(Math.random() * 255),
+				Math.round(Math.random() * 255)
+			);
+
+			cv.drawContours(original, contours, i, color, 1, cv.LINE_8, hierarchy, 0);
+		}
+
+		approximatedContour.delete();
+	}
+
 	// for (let i = 0; i < contours.size(); ++i) {
-	// 	let approximatedContour = new cv.Mat();
 	// 	let cnt = contours.get(i);
-	// 	// You can try more different parameters
+	// 	let approximatedContour = new cv.Mat();
+
 	// 	cv.approxPolyDP(cnt, approximatedContour, EPSILON, true);
-	// 	poly.push_back(approximatedContour);
+	// 	approximatedContours.push_back(approximatedContour);
 
 	// 	cnt.delete();
 	// 	approximatedContour.delete();
@@ -137,20 +184,17 @@ function imageProcessing({ msg, data }) {
 
 	// // draw contours with random Scalar
 	// for (let i = 0; i < contours.size(); ++i) {
-	// 	let color = new cv.Scalar(
-	// 		Math.round(Math.random() * 255),
-	// 		Math.round(Math.random() * 255),
-	// 		Math.round(Math.random() * 255)
-	// 	);
-	// 	cv.drawContours(contourImgBuffer, poly, i, color, 1, 8, hierarchy, 0);
+	// 	let color = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), 0);
+	// 	cv.drawContours(contourImgBuffer, approximatedContours, i, color, 1, 8, hierarchy, 0);
 	// }
 
-	postMessage({ msg, payload: imageDataFromMat(img) });
+	postMessage({ msg, payload: imageDataFromMat(original) });
 
 	// cleanup
 	contourImgBuffer.delete();
+	houghLinesBuffer.delete();
 	img.delete();
-	poly.delete();
+	approximatedContours.delete();
 	contours.delete();
 	hierarchy.delete();
 }
