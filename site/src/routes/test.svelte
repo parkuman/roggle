@@ -116,7 +116,7 @@
 
 	<div class="cam-canvas">
 		<!-- <video bind:this={videoEl} width={canvas.width} height={canvas.height} /> -->
-		<img bind:this={videoEl} src="/images/board1.jpg" width={canvas.width} height={canvas.height} />
+		<img bind:this={videoEl} src="/images/board2.jpg" width={canvas.width} height={canvas.height} />
 		<canvas bind:this={canvasEl} width={canvas.width} height={canvas.height} />
 	</div>
 
