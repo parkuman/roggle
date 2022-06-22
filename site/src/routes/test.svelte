@@ -12,11 +12,17 @@
 	let wasmSupported = true;
 	let loadingWorker = true;
 
+	let letterCanvases = Array.from(Array(16));
+	let letterCanvasDimensions = Array.from(Array(16)).map((element) => ({
+		width: 100,
+		height: 100,
+	}));
+
 	let canvasEl;
 	let videoEl;
 	const canvas = {
 		width: 480,
-		height: 480
+		height: 480,
 	};
 
 	async function processImage() {
@@ -30,8 +36,38 @@
 
 		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
 		const processedImage = await imageProcessing.imageProcessing(image);
+		const payload = processedImage.data.payload;
 
-		canvasCtx.putImageData(processedImage.data.payload, 0, 0);
+		if (typeof payload === "string" && payload.toLowerCase().includes("error")) {
+			error = processedImage.data.payload;
+			return;
+		}
+
+		canvasCtx.putImageData(payload, 0, 0);
+	}
+
+	async function getLetters() {
+		var memCanvas = document.createElement("canvas");
+		memCanvas.height = canvas.height;
+		memCanvas.width = canvas.width;
+		var memCanvasCtx = memCanvas.getContext("2d");
+		memCanvasCtx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+		const processedImage = await imageProcessing.imageProcessing(image);
+		const payload = processedImage.data.payload;
+
+		if (typeof payload === "string" && payload.toLowerCase().includes("error")) {
+			error = processedImage.data.payload;
+			return;
+		}
+
+		payload.forEach((letter, idx) => {
+			letterCanvasDimensions[idx].width = letter.width;
+			letterCanvasDimensions[idx].height = letter.height;
+			const canvasCtx = letterCanvases[idx].getContext("2d");
+			canvasCtx.putImageData(letter, 0, 0);
+		});
 	}
 
 	async function solveBoard() {
@@ -116,11 +152,25 @@
 
 	<div class="cam-canvas">
 		<!-- <video bind:this={videoEl} width={canvas.width} height={canvas.height} /> -->
-		<img bind:this={videoEl} src="/images/board2.jpg" width={canvas.width} height={canvas.height} />
+		<img bind:this={videoEl} src="/images/board4.jpg" width={canvas.width} height={canvas.height} />
 		<canvas bind:this={canvasEl} width={canvas.width} height={canvas.height} />
 	</div>
 
 	<button on:click={processImage} disabled={loadingWorker}>process image</button>
+
+	<div class="letter-canvas">
+		{#each Array.from(Array(16).keys()) as idx}
+			<canvas
+				bind:this={letterCanvases[idx]}
+				width={letterCanvasDimensions[idx].width}
+				height={letterCanvasDimensions[idx].height}
+			/>
+			{#if (idx + 1) % 4 === 0}
+				<br />
+			{/if}
+		{/each}
+		<button on:click={getLetters} disabled={loadingWorker}>process image</button>
+	</div>
 
 	<form on:submit|preventDefault={solveBoard}>
 		<p>Please input the N x M board as rows separated by spaces. For qu tile just put q.</p>

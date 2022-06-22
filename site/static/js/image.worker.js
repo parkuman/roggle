@@ -21,9 +21,9 @@ function distanceFromLine(linePt1, linePt2, point) {
 	return (
 		Math.abs(
 			(linePt2.y - linePt1.y) * point.x -
-				(linePt2.x - linePt1.x) * point.y +
-				linePt2.x * linePt1.y -
-				linePt2.y * linePt1.x
+			(linePt2.x - linePt1.x) * point.y +
+			linePt2.x * linePt1.y -
+			linePt2.y * linePt1.x
 		) / Math.pow(Math.pow(linePt2.y - linePt1.y, 2) + Math.pow(linePt2.x - linePt1.x, 2), 0.5)
 	);
 }
@@ -125,7 +125,8 @@ function imageProcessing({ msg, data }) {
 
 	// ========================== THRESHOLDING + FILTERING ==========================
 	cv.cvtColor(img, img, cv.COLOR_BGR2GRAY);
-	let grayscaleImg = img.clone();
+	const originalGrayscaleImg = img.clone();
+	const workingImg = img.clone();
 
 	// blur then sharpen to enhance edges
 	cv.medianBlur(img, img, 7);
@@ -145,21 +146,23 @@ function imageProcessing({ msg, data }) {
 	const hierarchy = new cv.Mat();
 	// const contourImgBuffer = cv.Mat.zeros(img.rows, img.cols, cv.CV_8UC3);
 	const color = new cv.Scalar(255, 0, 0);
-	const minArea = 3000;
+	const minArea = 2000;
 	const maxArea = 12000;
-	const letters = [];
-	const boundingPoints = [];
-	const midpoints = [];
+	const lettersCropped = [];
+	const letterData = [];
+	// const boundingPoints = [];
 
 	// find all contours in the image
 	cv.findContours(img, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
 
+	// loop over each contour and attempt to find the ones that are within an acceptable size
 	for (let i = 0; i < contours.size(); ++i) {
 		const contour = contours.get(i);
 		const area = cv.contourArea(contour);
 
 		// only keep contours within a certain area range (the boggle letter blocks have an area of approximately 8000 for this image size)
 		if (area < maxArea && area > minArea) {
+			// uncomment to see the contours identified
 			// cv.drawContours(contourImgBuffer, contours, i, color, 1, cv.LINE_8, hierarchy, 0);
 
 			const boundingRect = cv.boundingRect(contour);
@@ -168,34 +171,36 @@ function imageProcessing({ msg, data }) {
 			const rectBottomRightX = rectTopLeftX + boundingRect.width;
 			const rectBottomRightY = rectTopLeftY + boundingRect.height;
 
-			midpoints.push({
+			letterData.push({
 				x: Math.floor(rectTopLeftX + boundingRect.width / 2),
-				y: Math.floor(rectTopLeftY + boundingRect.height / 2)
+				y: Math.floor(rectTopLeftY + boundingRect.height / 2),
+				boundingBox: {
+					x: rectTopLeftX,
+					y: rectTopLeftY,
+					width: boundingRect.width,
+					height: boundingRect.height
+				},
 			});
-
-			boundingPoints.push({
-				x: rectTopLeftX,
-				y: rectTopLeftY
-			}); // top left
-			boundingPoints.push({ x: rectTopLeftX, y: rectTopLeftY + boundingRect.height }); // bottom left
-			boundingPoints.push({ x: rectTopLeftX + boundingRect.width, y: rectTopLeftY }); // top right
-			boundingPoints.push({ x: rectBottomRightX, y: rectBottomRightY }); // bottom right
-			letters.push(grayscaleImg.roi(boundingRect));
 
 			let topLeft = new cv.Point(rectTopLeftX, rectTopLeftY);
 			let bottomRight = new cv.Point(rectBottomRightX, rectBottomRightY);
-			cv.rectangle(grayscaleImg, topLeft, bottomRight, color, 2, cv.LINE_AA, 0);
+			cv.rectangle(workingImg, topLeft, bottomRight, color, 2, cv.LINE_AA, 0);
 		}
 	}
 
-	let pointsToSearch = midpoints;
+	// ========================== ROW FINDING ALGORITHM ==========================
+	let pointsToSearch = letterData;
+	let sortedPoints = [];
+	let maxRowSize = null;
 
-	cv.cvtColor(grayscaleImg, grayscaleImg, cv.COLOR_GRAY2BGR);
-	midpoints.forEach((pt) => {
-		cv.circle(grayscaleImg, new cv.Point(pt.x, pt.y), 3, [255, 0, 0, 255], 3);
-	});
+	cv.cvtColor(workingImg, workingImg, cv.COLOR_GRAY2BGR); // convert from grayscale to rgb so we can add colored info ontop of the image
+	// uncomment to see all the midpoints of all the letters identified
+	// pointsToSearch.forEach((pt) => {
+	// 	cv.circle(workingImg, new cv.Point(pt.x, pt.y), 3, [255, 0, 0, 255], 3);
+	// });
 
 	while (pointsToSearch.length > 0) {
+
 		const boundingPointsSum = pointsToSearch
 			.map((pt) => ({ x: pt.x, y: pt.y, sum: pt.x + pt.y }))
 			.sort((a, b) => {
@@ -216,50 +221,65 @@ function imageProcessing({ msg, data }) {
 		const topLeft = new cv.Point(boundingPointsSum[0].x, boundingPointsSum[0].y);
 		const topRight = new cv.Point(boundingPointsDiff[lastIdx].x, boundingPointsDiff[lastIdx].y);
 
-		// const bottomLeft = new cv.Point(boundingPointsDiff[0].x, boundingPointsDiff[0].y);
-		// const bottomRight = new cv.Point(boundingPointsSum[lastIdx].x, boundingPointsSum[lastIdx].y);
-
 		const pointsInRow = [];
+		const remainingPointsToSearch = [];
+		let rowColor = [Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255]
 		pointsToSearch.forEach((pt) => {
-			// TODO: skip top left and top right point
-			
 			const distance = distanceFromLine(topLeft, topRight, pt);
 
 			if (distance < 50) {
 				pointsInRow.push(pt);
-				cv.circle(grayscaleImg, new cv.Point(pt.x, pt.y), 3, [0, 255, 0, 255], 3);
+
+				// uncomment to display unique colored dot on each box in the row
+				cv.circle(workingImg, new cv.Point(pt.x, pt.y), 3, rowColor, 3);
+			} else {
+				remainingPointsToSearch.push(pt);
 			}
 		});
-		break;
+
+
+		// row size validation
+		if (maxRowSize === null) { 											// first run through, need to set an inital row size
+			maxRowSize = pointsInRow.length;
+		} else if (pointsInRow.length !== maxRowSize) { // subsequent run throughs, if the row sizes don't match we can't continue (we need an NxM board here folks!!!)
+			postMessage({
+				msg,
+				payload: "Error: Could not extract an NxM board from image"
+			});
+			return;
+		}
+
+		// reset the points to search to only be the ones that weren't found to be in the current row
+		pointsToSearch = remainingPointsToSearch;
+
+		// add the items found in the row sorted by x to the overall sorted points array
+		sortedPoints.push(...pointsInRow.sort((pt1, pt2) => {
+			if (pt1.x < pt2.x) return -1;
+			if (pt1.x > pt2.x) return 1;
+			return 0;
+		}));
 	}
 
-	// cv.circle(grayscaleImg, topLeft, 3, [0, 0, 0, 255], 3);
-	// cv.circle(grayscaleImg, topRight, 3, [0, 0, 0, 255], 3);
-	// cv.circle(grayscaleImg, bottomLeft, 3, [0, 0, 0, 255], 3);
-	// cv.circle(grayscaleImg, bottomRight, 3, [0, 0, 0, 255], 3);
-	// cv.line(
-	// 	grayscaleImg,
-	// 	topLeft,
-	// 	new cv.Point(boundingPointsSum[0].x + 50, boundingPointsSum[0].y + 50),
-	// 	[0, 255, 0, 255],
-	// 	1
-	// );
+	// ========================== EXTRACT SORTED LETTERS FOR PREDICTION ==========================
+	sortedPoints.forEach((pt, idx) => {
+		const boundingRect = new cv.Rect(pt.boundingBox.x, pt.boundingBox.y, pt.boundingBox.width, pt.boundingBox.height)
+		lettersCropped.push(imageDataFromMat(originalGrayscaleImg.roi(boundingRect)));
 
-	postMessage({
-		msg: "msg",
-		payload: ""
-	});
+		// uncomment to print numbered index beside each point
+		cv.putText(workingImg, idx.toString(), new cv.Point(pt.x + 10, pt.y + 10), cv.FONT_HERSHEY_SIMPLEX, 1, [255, 0, 0, 255], 2, cv.LINE_AA);
+	})
 
-	// TODO: do some checking for grid size (N? M?) and make sure there is the correct amount of letters detected
+	// ========================== TODO: PREDICTION ==========================
 
-	// TODO: prediction
 
 	// ========================== RETURN + CLEANUP ==========================
-	postMessage({ msg, payload: imageDataFromMat(grayscaleImg) });
+	postMessage({ msg, payload: lettersCropped });
+	// postMessage({ msg, payload: imageDataFromMat(workingImg) });
 
 	// contourImgBuffer.delete();
 	img.delete();
-	grayscaleImg.delete();
+	workingImg.delete();
+	originalGrayscaleImg.delete();
 	contours.delete();
 	hierarchy.delete();
 }
