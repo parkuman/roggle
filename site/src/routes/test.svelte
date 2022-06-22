@@ -152,7 +152,7 @@
 
 	<div class="cam-canvas">
 		<!-- <video bind:this={videoEl} width={canvas.width} height={canvas.height} /> -->
-		<img bind:this={videoEl} src="/images/board4.jpg" width={canvas.width} height={canvas.height} />
+		<img bind:this={videoEl} src="/images/board5.jpg" width={canvas.width} height={canvas.height} />
 		<canvas bind:this={canvasEl} width={canvas.width} height={canvas.height} />
 	</div>
 
@@ -169,8 +169,8 @@
 				<br />
 			{/if}
 		{/each}
-		<button on:click={getLetters} disabled={loadingWorker}>process image</button>
 	</div>
+	<button on:click={getLetters} disabled={loadingWorker}>get letters</button>
 
 	<form on:submit|preventDefault={solveBoard}>
 		<p>Please input the N x M board as rows separated by spaces. For qu tile just put q.</p>

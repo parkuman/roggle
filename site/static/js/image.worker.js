@@ -14,8 +14,14 @@ const paths = {
 	tfjsWasmBackend: "./tensorflow/tfjs-backend-wasm.min.js",
 	tfjsWasm: "./tensorflow/tfjs-backend-wasm.wasm",
 	tfjsWasmSimd: "./tensorflow/tfjs-backend-wasm-simd.wasm",
-	tfjsWasmThreadedSimd: "./tensorflow/tfjs-backend-wasm-threaded-simd.wasm"
+	tfjsWasmThreadedSimd: "./tensorflow/tfjs-backend-wasm-threaded-simd.wasm",
 };
+
+let model;
+
+async function initTfModel() {
+	await tf.loadLayersModel("./tensorflow/model/model.json");
+}
 
 function distanceFromLine(linePt1, linePt2, point) {
 	return (
@@ -23,9 +29,19 @@ function distanceFromLine(linePt1, linePt2, point) {
 			(linePt2.y - linePt1.y) * point.x -
 			(linePt2.x - linePt1.x) * point.y +
 			linePt2.x * linePt1.y -
-			linePt2.y * linePt1.x
+			linePt2.y * linePt1.x,
 		) / Math.pow(Math.pow(linePt2.y - linePt1.y, 2) + Math.pow(linePt2.x - linePt1.x, 2), 0.5)
 	);
+}
+
+function median(sortedNumbers) {
+	const middle = Math.floor(sortedNumbers.length / 2);
+
+	if (sortedNumbers.length % 2 === 0) {
+		return (sortedNumbers[middle - 1] + sortedNumbers[middle]) / 2;
+	}
+
+	return sortedNumbers[middle];
 }
 
 /**
@@ -75,7 +91,7 @@ async function getOpenCV() {
 	} else if (simdSupported && simdPath != "") {
 		if (threadsSupported && threadsSimdPath === "") {
 			console.log(
-				"The browser supports simd and threads, but the path of OpenCV.js with simd and threads optimization is empty"
+				"The browser supports simd and threads, but the path of OpenCV.js with simd and threads optimization is empty",
 			);
 		}
 		OPENCV_URL = simdPath;
@@ -83,7 +99,7 @@ async function getOpenCV() {
 	} else if (threadsSupported && threadsPath != "") {
 		if (simdSupported && threadsSimdPath === "") {
 			console.log(
-				"The browser supports simd and threads, but the path of OpenCV.js with simd and threads optimization is empty"
+				"The browser supports simd and threads, but the path of OpenCV.js with simd and threads optimization is empty",
 			);
 		}
 		OPENCV_URL = threadsPath;
@@ -91,19 +107,19 @@ async function getOpenCV() {
 	} else if (wasmSupported && wasmPath != "") {
 		if (simdSupported && threadsSupported) {
 			console.log(
-				"The browser supports simd and threads, but the path of OpenCV.js with simd and threads optimization is empty"
+				"The browser supports simd and threads, but the path of OpenCV.js with simd and threads optimization is empty",
 			);
 		}
 
 		if (simdSupported) {
 			console.log(
-				"The browser supports simd optimization, but the path of OpenCV.js with simd optimization is empty"
+				"The browser supports simd optimization, but the path of OpenCV.js with simd optimization is empty",
 			);
 		}
 
 		if (threadsSupported) {
 			console.log(
-				"The browser supports threads optimization, but the path of OpenCV.js with threads optimization is empty"
+				"The browser supports threads optimization, but the path of OpenCV.js with threads optimization is empty",
 			);
 		}
 
@@ -130,7 +146,7 @@ function imageProcessing({ msg, data }) {
 
 	// blur then sharpen to enhance edges
 	cv.medianBlur(img, img, 7);
-	const sharpeningKernel = cv.matFromArray(3, 3, cv.CV_32FC1, [0, -1, 0, -1, 5, -1, 0, -1, 0]);
+	const sharpeningKernel = cv.matFromArray(3, 3, cv.CV_32FC1, [0, -1, 0, -1, 5, -1, 0, -1, 0]); // https://en.wikipedia.org/wiki/Kernel_(image_processing)#Details
 	cv.filter2D(img, img, -1, sharpeningKernel);
 
 	// binary threshold the image to get extremes
@@ -146,26 +162,46 @@ function imageProcessing({ msg, data }) {
 	const hierarchy = new cv.Mat();
 	// const contourImgBuffer = cv.Mat.zeros(img.rows, img.cols, cv.CV_8UC3);
 	const color = new cv.Scalar(255, 0, 0);
-	const minArea = 2000;
-	const maxArea = 12000;
-	const lettersCropped = [];
-	const letterData = [];
-	// const boundingPoints = [];
+
+	const minArea = 1000; // lower bound on acceptable contour areas (this is very small)
+	const maxArea = 20000; // upper bound on acceptable contour areas (this is huge, bigger than any letter block should be)
+	const letterAreaDeviation = 3000; // acceptable range above and below median area of a letter contour
+	const contourData = []; // array to hold an object containing a contour, its area, and its bounding rectangle
+
+	const letterData = []; // array to hold on object containing a letter block's midpoint point and it's bounding box
 
 	// find all contours in the image
 	cv.findContours(img, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
 
-	// loop over each contour and attempt to find the ones that are within an acceptable size
-	for (let i = 0; i < contours.size(); ++i) {
+	// get all contours and contour areas areas and add them to an array
+	for (let i = 0; i < contours.size(); i++) {
+		// uncomment to see all the contours identified
+		// cv.drawContours(contourImgBuffer, contours, i, color, 1, cv.LINE_8, hierarchy, 0);
+
 		const contour = contours.get(i);
 		const area = cv.contourArea(contour);
 
-		// only keep contours within a certain area range (the boggle letter blocks have an area of approximately 8000 for this image size)
-		if (area < maxArea && area > minArea) {
-			// uncomment to see the contours identified
-			// cv.drawContours(contourImgBuffer, contours, i, color, 1, cv.LINE_8, hierarchy, 0);
+		// if within an acceptable area, save the contour and its area to an object and add it to the list of contours we think are decent enough to continue with
+		if (area > minArea && area < maxArea) {
+			contourData.push({
+				contour,
+				area,
+			});
+		}
+	}
 
-			const boundingRect = cv.boundingRect(contour);
+	// sort the contours by area and find the median value. we will use the median plus a range to try to filter out outlier contours
+	contourData.sort((c1, c2) => c1.area - c2.area);
+	const medianArea = median(contourData.map((c) => c.area));
+
+	// loop over each contour and attempt to find the ones that are within an acceptable range of the median value
+	contourData.forEach((contour) => {
+		// only keep contours within a certain area range of the median
+		if (
+			contour.area < medianArea + letterAreaDeviation &&
+			contour.area > medianArea - letterAreaDeviation
+		) {
+			const boundingRect = cv.boundingRect(contour.contour);
 			const rectTopLeftX = boundingRect.x;
 			const rectTopLeftY = boundingRect.y;
 			const rectBottomRightX = rectTopLeftX + boundingRect.width;
@@ -178,7 +214,7 @@ function imageProcessing({ msg, data }) {
 					x: rectTopLeftX,
 					y: rectTopLeftY,
 					width: boundingRect.width,
-					height: boundingRect.height
+					height: boundingRect.height,
 				},
 			});
 
@@ -186,7 +222,7 @@ function imageProcessing({ msg, data }) {
 			let bottomRight = new cv.Point(rectBottomRightX, rectBottomRightY);
 			cv.rectangle(workingImg, topLeft, bottomRight, color, 2, cv.LINE_AA, 0);
 		}
-	}
+	});
 
 	// ========================== ROW FINDING ALGORITHM ==========================
 	let pointsToSearch = letterData;
@@ -200,22 +236,13 @@ function imageProcessing({ msg, data }) {
 	// });
 
 	while (pointsToSearch.length > 0) {
-
 		const boundingPointsSum = pointsToSearch
 			.map((pt) => ({ x: pt.x, y: pt.y, sum: pt.x + pt.y }))
-			.sort((a, b) => {
-				if (a.sum < b.sum) return -1;
-				if (a.sum > b.sum) return 1;
-				return 0;
-			});
+			.sort((a, b) => a.sum - b.sum);
 
 		const boundingPointsDiff = pointsToSearch
 			.map((pt) => ({ x: pt.x, y: pt.y, diff: pt.x - pt.y }))
-			.sort((a, b) => {
-				if (a.diff < b.diff) return -1;
-				if (a.diff > b.diff) return 1;
-				return 0;
-			});
+			.sort((a, b) => a.diff - b.diff);
 
 		const lastIdx = pointsToSearch.length - 1;
 		const topLeft = new cv.Point(boundingPointsSum[0].x, boundingPointsSum[0].y);
@@ -223,7 +250,12 @@ function imageProcessing({ msg, data }) {
 
 		const pointsInRow = [];
 		const remainingPointsToSearch = [];
-		let rowColor = [Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255]
+		let rowColor = [
+			Math.round(Math.random() * 255),
+			Math.round(Math.random() * 255),
+			Math.round(Math.random() * 255),
+			255,
+		];
 		pointsToSearch.forEach((pt) => {
 			const distance = distanceFromLine(topLeft, topRight, pt);
 
@@ -237,14 +269,15 @@ function imageProcessing({ msg, data }) {
 			}
 		});
 
-
 		// row size validation
-		if (maxRowSize === null) { 											// first run through, need to set an inital row size
+		if (maxRowSize === null) {
+			// first run through, need to set an inital row size
 			maxRowSize = pointsInRow.length;
-		} else if (pointsInRow.length !== maxRowSize) { // subsequent run throughs, if the row sizes don't match we can't continue (we need an NxM board here folks!!!)
+		} else if (pointsInRow.length !== maxRowSize) {
+			// subsequent run throughs, if the row sizes don't match we can't continue (we need an NxM board here folks!!!)
 			postMessage({
 				msg,
-				payload: "Error: Could not extract an NxM board from image"
+				payload: "Error: Could not extract an NxM board from image",
 			});
 			return;
 		}
@@ -253,35 +286,47 @@ function imageProcessing({ msg, data }) {
 		pointsToSearch = remainingPointsToSearch;
 
 		// add the items found in the row sorted by x to the overall sorted points array
-		sortedPoints.push(...pointsInRow.sort((pt1, pt2) => {
-			if (pt1.x < pt2.x) return -1;
-			if (pt1.x > pt2.x) return 1;
-			return 0;
-		}));
+		sortedPoints.push(...pointsInRow.sort((pt1, pt2) => pt1.x - pt2.x));
 	}
 
 	// ========================== EXTRACT SORTED LETTERS FOR PREDICTION ==========================
+	const lettersCropped = []; // array to hold a list of all letter image data cropped regions of interest, this array will be passed into the prediction step
+
 	sortedPoints.forEach((pt, idx) => {
-		const boundingRect = new cv.Rect(pt.boundingBox.x, pt.boundingBox.y, pt.boundingBox.width, pt.boundingBox.height)
+		const boundingRect = new cv.Rect(
+			pt.boundingBox.x,
+			pt.boundingBox.y,
+			pt.boundingBox.width,
+			pt.boundingBox.height,
+		);
 		lettersCropped.push(imageDataFromMat(originalGrayscaleImg.roi(boundingRect)));
 
 		// uncomment to print numbered index beside each point
-		cv.putText(workingImg, idx.toString(), new cv.Point(pt.x + 10, pt.y + 10), cv.FONT_HERSHEY_SIMPLEX, 1, [255, 0, 0, 255], 2, cv.LINE_AA);
-	})
+		cv.putText(
+			workingImg,
+			idx.toString(),
+			new cv.Point(pt.x + 10, pt.y + 10),
+			cv.FONT_HERSHEY_SIMPLEX,
+			1,
+			[255, 0, 0, 255],
+			2,
+			cv.LINE_AA,
+		);
+	});
 
 	// ========================== TODO: PREDICTION ==========================
-
+	initTfModel();
 
 	// ========================== RETURN + CLEANUP ==========================
 	postMessage({ msg, payload: lettersCropped });
 	// postMessage({ msg, payload: imageDataFromMat(workingImg) });
 
 	// contourImgBuffer.delete();
+	contours.delete();
+	hierarchy.delete();
 	img.delete();
 	workingImg.delete();
 	originalGrayscaleImg.delete();
-	contours.delete();
-	hierarchy.delete();
 }
 
 /**
@@ -312,11 +357,6 @@ function imageDataFromMat(mat) {
 	return clampedArray;
 }
 
-/**
- * This exists to capture all the events that are thrown out of the worker
- * into the worker. Without this, there would be no communication possible
- * with the project.
- */
 onmessage = async function (e) {
 	switch (e.data.msg) {
 		case "load": {
@@ -333,7 +373,7 @@ onmessage = async function (e) {
 				tf.wasm.setWasmPaths({
 					"tfjs-backend-wasm.wasm": paths.tfjsWasm,
 					"tfjs-backend-wasm-simd.wasm": paths.tfjsWasmSimd,
-					"tfjs-backend-wasm-threaded-simd.wasm": paths.tfjsWasmThreadedSimd
+					"tfjs-backend-wasm-threaded-simd.wasm": paths.tfjsWasmThreadedSimd,
 				});
 				tf.setBackend("wasm");
 				await tf.ready();
