@@ -25,6 +25,25 @@
 		height: 480,
 	};
 
+	async function extractBoard() {
+		var memCanvas = document.createElement("canvas");
+		memCanvas.height = canvas.height;
+		memCanvas.width = canvas.width;
+		var memCanvasCtx = memCanvas.getContext("2d");
+		memCanvasCtx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+		const processedImage = await imageProcessing.imageProcessing(image);
+		const payload = processedImage.data.payload;
+
+		if (typeof payload === "string" && payload.toLowerCase().includes("error")) {
+			error = processedImage.data.payload;
+			return;
+		}
+
+		board = payload;
+	}
+
 	async function processImage() {
 		const canvasCtx = canvasEl.getContext("2d");
 
@@ -175,6 +194,9 @@
 	<form on:submit|preventDefault={solveBoard}>
 		<p>Please input the N x M board as rows separated by spaces. For qu tile just put q.</p>
 		<input type="text" style:margin-bottom="20px" bind:value={board} />
+		<button on:click={extractBoard} type="button" disabled={loadingWorker || !wasmSupported}
+			>Extract board from image</button
+		>
 		<button disabled={solving || !wasmSupported} type="submit"
 			>{solving ? "Solving..." : "Solve"}</button
 		>

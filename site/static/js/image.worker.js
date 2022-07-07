@@ -1,7 +1,7 @@
 /* eslint-disable no-undef */
 /**
  * This file is a Web Worker Responsible for loading and
- * running OpenCV commands off the main thread
+ * running OpenCV and TensorFlow commands in a worker thread
  */
 
 const paths = {
@@ -17,10 +17,40 @@ const paths = {
 	tfjsWasmThreadedSimd: "./tensorflow/tfjs-backend-wasm-threaded-simd.wasm",
 };
 
+const CLASSES = {
+	0: "a",
+	1: "b",
+	2: "c",
+	3: "d",
+	4: "e",
+	5: "f",
+	6: "g",
+	7: "h",
+	8: "i",
+	9: "j",
+	10: "k",
+	11: "l",
+	12: "m",
+	13: "n",
+	14: "o",
+	15: "p",
+	16: "q",
+	17: "r",
+	18: "s",
+	19: "t",
+	20: "u",
+	21: "v",
+	22: "w",
+	23: "x",
+	24: "y",
+	25: "z",
+}
+
 let model;
 
+
 async function initTfModel() {
-	await tf.loadLayersModel("./tensorflow/model/model.json");
+	model = await tf.loadLayersModel("./tensorflow/model/model.json");
 }
 
 function distanceFromLine(linePt1, linePt2, point) {
@@ -146,6 +176,7 @@ function imageProcessing({ msg, data }) {
 
 	// blur then sharpen to enhance edges
 	cv.medianBlur(img, img, 7);
+
 	const sharpeningKernel = cv.matFromArray(3, 3, cv.CV_32FC1, [0, -1, 0, -1, 5, -1, 0, -1, 0]); // https://en.wikipedia.org/wiki/Kernel_(image_processing)#Details
 	cv.filter2D(img, img, -1, sharpeningKernel);
 
@@ -161,14 +192,12 @@ function imageProcessing({ msg, data }) {
 	const contours = new cv.MatVector();
 	const hierarchy = new cv.Mat();
 	// const contourImgBuffer = cv.Mat.zeros(img.rows, img.cols, cv.CV_8UC3);
-	const color = new cv.Scalar(255, 0, 0);
+	const color = new cv.Scalar(255, 255, 255);
 
 	const minArea = 1000; // lower bound on acceptable contour areas (this is very small)
 	const maxArea = 20000; // upper bound on acceptable contour areas (this is huge, bigger than any letter block should be)
-	const letterAreaDeviation = 3000; // acceptable range above and below median area of a letter contour
 	const contourData = []; // array to hold an object containing a contour, its area, and its bounding rectangle
 
-	const letterData = []; // array to hold on object containing a letter block's midpoint point and it's bounding box
 
 	// find all contours in the image
 	cv.findContours(img, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
@@ -176,7 +205,7 @@ function imageProcessing({ msg, data }) {
 	// get all contours and contour areas areas and add them to an array
 	for (let i = 0; i < contours.size(); i++) {
 		// uncomment to see all the contours identified
-		// cv.drawContours(contourImgBuffer, contours, i, color, 1, cv.LINE_8, hierarchy, 0);
+		//cv.drawContours(contourImgBuffer, contours, i, color, 1, cv.LINE_8, hierarchy, 0);
 
 		const contour = contours.get(i);
 		const area = cv.contourArea(contour);
@@ -190,9 +219,14 @@ function imageProcessing({ msg, data }) {
 		}
 	}
 
+	const letterAreaDeviation = 3000; // acceptable range above and below median area of a letter contour
+	const letterData = []; // array to hold on object containing a letter block's midpoint point and it's bounding box
+
 	// sort the contours by area and find the median value. we will use the median plus a range to try to filter out outlier contours
 	contourData.sort((c1, c2) => c1.area - c2.area);
 	const medianArea = median(contourData.map((c) => c.area));
+
+	// const goodContours = new cv.MatVector();
 
 	// loop over each contour and attempt to find the ones that are within an acceptable range of the median value
 	contourData.forEach((contour) => {
@@ -201,6 +235,7 @@ function imageProcessing({ msg, data }) {
 			contour.area < medianArea + letterAreaDeviation &&
 			contour.area > medianArea - letterAreaDeviation
 		) {
+			// goodContours.push_back(contour.contour);
 			const boundingRect = cv.boundingRect(contour.contour);
 			const rectTopLeftX = boundingRect.x;
 			const rectTopLeftY = boundingRect.y;
@@ -223,6 +258,11 @@ function imageProcessing({ msg, data }) {
 			cv.rectangle(workingImg, topLeft, bottomRight, color, 2, cv.LINE_AA, 0);
 		}
 	});
+
+	// draw only the good contours (ideally this should only have the letter boxes at this point)
+	// for (let i = 0; i < goodContours.size(); i++) {
+	// 	cv.drawContours(contourImgBuffer, goodContours, i, color, 1, cv.LINE_8, hierarchy, 0);
+	// }
 
 	// ========================== ROW FINDING ALGORITHM ==========================
 	let pointsToSearch = letterData;
@@ -250,12 +290,13 @@ function imageProcessing({ msg, data }) {
 
 		const pointsInRow = [];
 		const remainingPointsToSearch = [];
-		let rowColor = [
-			Math.round(Math.random() * 255),
-			Math.round(Math.random() * 255),
-			Math.round(Math.random() * 255),
-			255,
-		];
+
+		// let rowColor = [
+		// 	Math.round(Math.random() * 255),
+		// 	Math.round(Math.random() * 255),
+		// 	Math.round(Math.random() * 255),
+		// 	255,
+		// ];
 		pointsToSearch.forEach((pt) => {
 			const distance = distanceFromLine(topLeft, topRight, pt);
 
@@ -263,7 +304,7 @@ function imageProcessing({ msg, data }) {
 				pointsInRow.push(pt);
 
 				// uncomment to display unique colored dot on each box in the row
-				cv.circle(workingImg, new cv.Point(pt.x, pt.y), 3, rowColor, 3);
+				// cv.circle(workingImg, new cv.Point(pt.x, pt.y), 3, rowColor, 3);
 			} else {
 				remainingPointsToSearch.push(pt);
 			}
@@ -289,8 +330,11 @@ function imageProcessing({ msg, data }) {
 		sortedPoints.push(...pointsInRow.sort((pt1, pt2) => pt1.x - pt2.x));
 	}
 
+
 	// ========================== EXTRACT SORTED LETTERS FOR PREDICTION ==========================
 	const lettersCropped = []; // array to hold a list of all letter image data cropped regions of interest, this array will be passed into the prediction step
+	const IMG_SIZE = 48;
+	const IMG_AREA = IMG_SIZE * IMG_SIZE;
 
 	sortedPoints.forEach((pt, idx) => {
 		const boundingRect = new cv.Rect(
@@ -299,26 +343,58 @@ function imageProcessing({ msg, data }) {
 			pt.boundingBox.width,
 			pt.boundingBox.height,
 		);
-		lettersCropped.push(imageDataFromMat(originalGrayscaleImg.roi(boundingRect)));
+
+		// crop letter and resize them all to the same size
+		const roi = originalGrayscaleImg.roi(boundingRect);
+		cv.resize(roi, roi, new cv.Size(IMG_SIZE, IMG_SIZE), 0, 0, cv.INTER_AREA);
+		lettersCropped.push(roi);
 
 		// uncomment to print numbered index beside each point
-		cv.putText(
-			workingImg,
-			idx.toString(),
-			new cv.Point(pt.x + 10, pt.y + 10),
-			cv.FONT_HERSHEY_SIMPLEX,
-			1,
-			[255, 0, 0, 255],
-			2,
-			cv.LINE_AA,
-		);
+		// cv.putText(
+		// 	workingImg,
+		// 	idx.toString(),
+		// 	new cv.Point(pt.x + 10, pt.y + 10),
+		// 	cv.FONT_HERSHEY_SIMPLEX,
+		// 	1,
+		// 	[255, 0, 0, 255],
+		// 	2,
+		// 	cv.LINE_AA,
+		// );
 	});
 
-	// ========================== TODO: PREDICTION ==========================
-	initTfModel();
+	// ========================== PREDICTION ==========================
+	const TOTAL_LETTERS = lettersCropped.length;
+	const inputTensorArr = new Float32Array(
+		IMG_AREA * TOTAL_LETTERS
+	);
+
+	lettersCropped.forEach((croppedLetter, i) => {
+		inputTensorArr.set(croppedLetter.data, i * IMG_AREA);
+	})
+
+	const testTensor = tf.tensor2d(inputTensorArr, [TOTAL_LETTERS, IMG_AREA]);
+	const reshaped = testTensor.reshape([TOTAL_LETTERS, IMG_SIZE, IMG_SIZE, 1]);
+
+	const predictions = model.predict(reshaped).dataSync();
+
+	let predictedBoard = "";
+	for (let i = 0; i < TOTAL_LETTERS; i++) {
+		const letterPredictionsArr = Array.from(predictions).slice(i * 26, i * 26 + 26);
+		const mostLikelyLetter = Math.max(...letterPredictionsArr);
+		const letterIndex = letterPredictionsArr.indexOf(mostLikelyLetter);
+		predictedBoard += CLASSES[letterIndex];
+
+		// if we are at the end of a row, add a space to indicate a new row in the board
+		if ((i + 1) % maxRowSize === 0) {
+			predictedBoard += " ";
+		}
+	}
+
+	postMessage({ msg, payload: predictedBoard });
+
 
 	// ========================== RETURN + CLEANUP ==========================
-	postMessage({ msg, payload: lettersCropped });
+	// postMessage({ msg, payload: lettersCropped });
 	// postMessage({ msg, payload: imageDataFromMat(workingImg) });
 
 	// contourImgBuffer.delete();
@@ -376,6 +452,7 @@ onmessage = async function (e) {
 					"tfjs-backend-wasm-threaded-simd.wasm": paths.tfjsWasmThreadedSimd,
 				});
 				tf.setBackend("wasm");
+				initTfModel();
 				await tf.ready();
 			} catch (err) {
 				throw new Error(err);
