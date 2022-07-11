@@ -1,37 +1,43 @@
 <script>
 	import roggle from "$lib/services/roggle";
+	import imageProcessing from "$lib/services/imageProcessing";
 	import { onMount } from "svelte";
 
 	let board;
 	let solving = false;
+	let extractingBoard = false;
 	let solutions;
 	let error;
 	let wasmSupported = true;
+	let loadingWorker = true;
 
-	let rows = 4;
-	let cols = 4;
-	let boxes = [
-		["", "", "", ""],
-		["", "", "", ""],
-		["", "", "", ""],
-		["", "", "", ""]
-	];
+	let videoEl;
+	const canvas = {
+		width: 480,
+		height: 480,
+	};
 
-	// $: console.log(boxes);
-	// $: board = [].concat(boxes.map((row) => row.join("") + " ")).join("");
-	// $: console.log(board);
+	async function extractBoard() {
+		extractingBoard = true;
+		error = null;
 
-	function rebuildBoard() {
-		boxes = Array(rows).fill(Array(cols).fill(""));
-	}
+		var memCanvas = document.createElement("canvas");
+		memCanvas.height = canvas.height;
+		memCanvas.width = canvas.width;
+		var memCanvasCtx = memCanvas.getContext("2d");
+		memCanvasCtx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
 
-	function isValid(val, i, j) {
-		console.log(i, j);
-		if ((val.keyCode >= 65 && val.keyCode <= 90) || (val.keyCode >= 97 && val.keyCode <= 122)) {
-			boxes[i][j] = val.key;
-			return true;
+		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+		const processedImage = await imageProcessing.imageProcessing(image);
+		const payload = processedImage.data.payload;
+
+		if (typeof payload === "string" && payload.toLowerCase().includes("error")) {
+			error = processedImage.data.payload;
+			return;
 		}
-		return false;
+
+		extractingBoard = false;
+		board = payload;
 	}
 
 	async function solveBoard() {
@@ -89,11 +95,23 @@
 		solving = false;
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		wasmSupported = !(typeof WebAssembly === "undefined");
 		if (!wasmSupported) {
 			error = "Sorry! Your browser does not support the features needed to run Roggle";
 		}
+
+		try {
+			const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+			videoEl.srcObject = stream;
+			videoEl.play();
+		} catch (e) {
+			console.error(e, "camera access denied");
+		}
+
+		loadingWorker = true;
+		await imageProcessing.load();
+		loadingWorker = false;
 	});
 </script>
 
@@ -102,59 +120,19 @@
 		<img src="/images/roggle.png" alt="roggle logo" width="200" />
 	</header>
 
+	<div class="cam-canvas">
+		<video bind:this={videoEl} width={canvas.width} height={canvas.height} />
+		<!-- <img bind:this={videoEl} src="/images/board1.jpg" width={canvas.width} height={canvas.height} /> -->
+	</div>
+
 	<form on:submit|preventDefault={solveBoard}>
 		<p>Please input the N x M board as rows separated by spaces. For qu tile just put q.</p>
 		<input type="text" style:margin-bottom="20px" bind:value={board} />
-
-		<!-- <div class="board">
-			<div class="grid">
-				{#each boxes as row, i}
-					<div class="row">
-						{#each row as column, j}
-							<input
-								class="grid-input"
-								type="text"
-								bind:value={boxes[i][j]}
-								on:keydown|preventDefault={(e) => isValid(e, i, j)}
-							/>
-						{/each}
-					</div>
-				{/each}
-				<div class="row-buttons">
-					<button
-						type="button"
-						on:click={() => {
-							rows = rows - 1;
-							rebuildBoard();
-						}}>-</button
-					>
-					<button
-						type="button"
-						on:click={() => {
-							rows = rows + 1;
-							rebuildBoard();
-						}}>+</button
-					>
-				</div>
-			</div>
-			<div class="col-buttons">
-				<button
-					type="button"
-					on:click={() => {
-						cols = cols - 1;
-						rebuildBoard();
-					}}>-</button
-				>
-				<button
-					type="button"
-					on:click={() => {
-						cols = cols + 1;
-						rebuildBoard();
-					}}>+</button
-				>
-			</div>
-		</div> -->
-
+		<button
+			on:click={extractBoard}
+			type="button"
+			disabled={extractingBoard || loadingWorker || !wasmSupported}>Extract board from image</button
+		>
 		<button disabled={solving || !wasmSupported} type="submit"
 			>{solving ? "Solving..." : "Solve"}</button
 		>
@@ -179,6 +157,14 @@
 </main>
 
 <style>
+	.cam-canvas {
+		width: 100%;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+	}
+
 	button {
 		cursor: pointer;
 	}
@@ -196,42 +182,5 @@
 
 	header {
 		margin-bottom: 100px;
-	}
-
-	.row-buttons {
-		display: flex;
-		flex-direction: row;
-	}
-
-	.row-buttons button {
-		width: 100%;
-	}
-
-	.col-buttons {
-		margin-left: 5px;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.col-buttons button {
-		height: 100%;
-	}
-
-	input.grid-input {
-		max-width: 1rem;
-	}
-
-	.board {
-		display: flex;
-		flex-direction: row;
-		margin-bottom: 20px;
-	}
-
-	button.right-plus {
-		margin-left: 5px;
-	}
-
-	input.grid-input:not(:last-child) {
-		margin: 0 5px 5px 0;
 	}
 </style>

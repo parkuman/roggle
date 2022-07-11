@@ -1,9 +1,4 @@
 class ImageProcessing {
-	/**
-	 * We will use this method privately to communicate with the worker and
-	 * return a promise with the result of the event. This way we can call
-	 * the worker asynchronously.
-	 */
 	_dispatch(event) {
 		const { msg } = event;
 		this._status[msg] = ["loading"];
@@ -21,14 +16,6 @@ class ImageProcessing {
 		});
 	}
 
-	/**
-	 * First, we will load the worker and capture the onmessage
-	 * and onerror events to always know the status of the event
-	 * we have triggered.
-	 *
-	 * Then, we are going to call the 'load' event, as we've just
-	 * implemented it so that the worker can capture it.
-	 */
 	load() {
 		this._status = {};
 		this.worker = new Worker("/js/image.worker.js"); // load worker
@@ -45,9 +32,9 @@ class ImageProcessing {
 		return this._dispatch({ msg: "load" });
 	}
 
-	imageProcessing(data) {
+	imageProcessing(data, debug=false) {
 		if (!this.worker) this.load();
-		return this._dispatch({ msg: "imageProcessing", data });
+		return this._dispatch({ msg: "imageProcessing", data, debug });
 	}
 }
 

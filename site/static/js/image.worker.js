@@ -166,13 +166,14 @@ async function getOpenCV() {
 	return OPENCV_URL;
 }
 
-function imageProcessing({ msg, data }) {
+function imageProcessing({ msg, data, debug }) {
 	const img = cv.matFromImageData(data);
 
 	// ========================== THRESHOLDING + FILTERING ==========================
 	cv.cvtColor(img, img, cv.COLOR_BGR2GRAY);
 	const originalGrayscaleImg = img.clone();
 	const workingImg = img.clone();
+	postMessage({ msg: "msg", payload: "grayscale" });
 
 	// blur then sharpen to enhance edges
 	cv.medianBlur(img, img, 7);
@@ -259,6 +260,9 @@ function imageProcessing({ msg, data }) {
 		}
 	});
 
+	postMessage({ msg: "msg", payload: "done contours" });
+
+
 	// draw only the good contours (ideally this should only have the letter boxes at this point)
 	// for (let i = 0; i < goodContours.size(); i++) {
 	// 	cv.drawContours(contourImgBuffer, goodContours, i, color, 1, cv.LINE_8, hierarchy, 0);
@@ -328,15 +332,17 @@ function imageProcessing({ msg, data }) {
 
 		// add the items found in the row sorted by x to the overall sorted points array
 		sortedPoints.push(...pointsInRow.sort((pt1, pt2) => pt1.x - pt2.x));
+
+		// TODO: break out of here if it isn't getting smaller
 	}
 
 
 	// ========================== EXTRACT SORTED LETTERS FOR PREDICTION ==========================
 	const lettersCropped = []; // array to hold a list of all letter image data cropped regions of interest, this array will be passed into the prediction step
-	const IMG_SIZE = 48;
+	const IMG_SIZE = 48;			 // our classification model takes in images that are 48x48 pixels
 	const IMG_AREA = IMG_SIZE * IMG_SIZE;
 
-	sortedPoints.forEach((pt, idx) => {
+	sortedPoints.forEach((pt) => {
 		const boundingRect = new cv.Rect(
 			pt.boundingBox.x,
 			pt.boundingBox.y,
@@ -368,6 +374,7 @@ function imageProcessing({ msg, data }) {
 		IMG_AREA * TOTAL_LETTERS
 	);
 
+	// insert the raw opencv image data into the new Float32Array we made
 	lettersCropped.forEach((croppedLetter, i) => {
 		inputTensorArr.set(croppedLetter.data, i * IMG_AREA);
 	})
@@ -390,8 +397,8 @@ function imageProcessing({ msg, data }) {
 		}
 	}
 
+	// by now, predictedBoard should look something like "abcd efgh ijlm opqr" for a 4x4 board for example
 	postMessage({ msg, payload: predictedBoard });
-
 
 	// ========================== RETURN + CLEANUP ==========================
 	// postMessage({ msg, payload: lettersCropped });
