@@ -105,7 +105,7 @@
 			const videoOptions = {
 				audio: false,
 				video: {
-					facingMode: "user",
+					facingMode: "environment",
 				},
 			};
 			const stream = await navigator.mediaDevices.getUserMedia(videoOptions);
