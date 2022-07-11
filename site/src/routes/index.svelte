@@ -102,7 +102,13 @@
 		}
 
 		try {
-			const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+			const videoOptions = {
+				audio: false,
+				video: {
+					facingMode: "user",
+				},
+			};
+			const stream = await navigator.mediaDevices.getUserMedia(videoOptions);
 			videoEl.srcObject = stream;
 			videoEl.play();
 		} catch (e) {
