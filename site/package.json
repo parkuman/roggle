@@ -2,7 +2,7 @@
 	"name": "site",
 	"version": "0.0.1",
 	"scripts": {
-		"dev": "svelte-kit dev --host",
+		"dev": "vite dev",
 		"build": "vite build",
 		"package": "svelte-kit package",
 		"preview": "svelte-kit preview",
@@ -19,7 +19,7 @@
 		"prettier": "^2.5.1",
 		"prettier-plugin-svelte": "^2.5.0",
 		"svelte": "^3.46.0",
-		"vite": "^2.9.13"
+		"vite": "^3.0.0"
 	},
 	"type": "module",
 	"dependencies": {

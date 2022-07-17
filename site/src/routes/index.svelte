@@ -1,17 +1,18 @@
 <script>
 	import solver from "$lib/services/solver";
 	import imageProcessing from "$lib/services/imageProcessing";
+	import Camera from "$lib/Camera.svelte";
 	import { onMount } from "svelte";
 
 	let board;
-	let solving = false;
-	let extractingBoard = false;
 	let solutions;
 	let error;
+	let solving = false;
+	let extractingBoard = false;
 	let wasmSupported = true;
 	let loadingWorker = true;
 
-	let videoEl;
+	let inputImgEl;
 	const canvas = {
 		width: 480,
 		height: 480,
@@ -25,7 +26,7 @@
 		memCanvas.height = canvas.height;
 		memCanvas.width = canvas.width;
 		var memCanvasCtx = memCanvas.getContext("2d");
-		memCanvasCtx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+		memCanvasCtx.drawImage(inputImgEl, 0, 0, canvas.width, canvas.height);
 
 		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
 		const processedImage = await imageProcessing.imageProcessing(image);
@@ -101,20 +102,6 @@
 			error = "Sorry! Your browser does not support the features needed to run Roggle";
 		}
 
-		try {
-			const videoOptions = {
-				audio: false,
-				video: {
-					facingMode: "environment",
-				},
-			};
-			const stream = await navigator.mediaDevices.getUserMedia(videoOptions);
-			videoEl.srcObject = stream;
-			videoEl.play();
-		} catch (e) {
-			console.error(e, "camera access denied");
-		}
-
 		loadingWorker = true;
 		await imageProcessing.load();
 		loadingWorker = false;
@@ -127,8 +114,13 @@
 	</header>
 
 	<div class="cam-canvas">
-		<!-- <video bind:this={videoEl} width={canvas.width} height={canvas.height} /> -->
-		<img bind:this={videoEl} src="/images/board1.jpg" width={canvas.width} height={canvas.height} />
+		<Camera bind:context={inputImgEl} width={canvas.width} height={canvas.height} />
+		<!-- <img
+			bind:this={inputImgEl}
+			src="/images/board1.jpg"
+			width={canvas.width}
+			height={canvas.height}
+		/> -->
 	</div>
 
 	<form on:submit|preventDefault={solveBoard}>

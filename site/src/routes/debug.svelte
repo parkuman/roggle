@@ -1,9 +1,9 @@
 <script>
-	import solver from "$lib/services/solver";
-	import imageProcessing from "$lib/services/imageProcessing";
 	import { onMount } from "svelte";
 
-	const maxVideoSize = 200;
+	import solver from "$lib/services/solver";
+	import imageProcessing from "$lib/services/imageProcessing";
+	import Camera from "$lib/Camera.svelte";
 
 	let board;
 	let solving = false;
@@ -12,6 +12,7 @@
 	let error;
 	let wasmSupported = true;
 	let loadingWorker = true;
+	let worker = null;
 
 	let letterCanvases = Array.from(Array(16));
 	let letterCanvasDimensions = Array.from(Array(16)).map((element) => ({
@@ -20,7 +21,8 @@
 	}));
 
 	let canvasEl;
-	let videoEl;
+	let inputImgEl;
+	let useCamera = false;
 	const canvas = {
 		width: 480,
 		height: 480,
@@ -34,7 +36,7 @@
 		memCanvas.height = canvas.height;
 		memCanvas.width = canvas.width;
 		var memCanvasCtx = memCanvas.getContext("2d");
-		memCanvasCtx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+		memCanvasCtx.drawImage(inputImgEl, 0, 0, canvas.width, canvas.height);
 
 		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
 		const processedImage = await imageProcessing.imageProcessing(image, true);
@@ -49,6 +51,25 @@
 		board = payload;
 	}
 
+	async function initializeWorker() {
+		loadingWorker = true;
+		// worker = new Worker("/js/image.worker.js");
+
+		// worker.onmessage = (e) => {
+		// 	console.log(e);
+		// };
+		// worker.postMessage({ msg: "load" });
+		
+		await imageProcessing.load();
+
+		imageProcessing.worker.onmessage = (e) => {
+			console.log("FROM SVELTE", e);
+		};;
+
+		loadingWorker = false;
+
+	}
+
 	async function processImage() {
 		const canvasCtx = canvasEl.getContext("2d");
 
@@ -56,7 +77,7 @@
 		memCanvas.height = canvas.height;
 		memCanvas.width = canvas.width;
 		var memCanvasCtx = memCanvas.getContext("2d");
-		memCanvasCtx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+		memCanvasCtx.drawImage(inputImgEl, 0, 0, canvas.width, canvas.height);
 
 		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
 		const processedImage = await imageProcessing.imageProcessing(image);
@@ -66,7 +87,6 @@
 			error = processedImage.data.payload;
 			return;
 		}
-
 		canvasCtx.putImageData(payload, 0, 0);
 	}
 
@@ -75,7 +95,7 @@
 		memCanvas.height = canvas.height;
 		memCanvas.width = canvas.width;
 		var memCanvasCtx = memCanvas.getContext("2d");
-		memCanvasCtx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+		memCanvasCtx.drawImage(inputImgEl, 0, 0, canvas.width, canvas.height);
 
 		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
 		const processedImage = await imageProcessing.imageProcessing(image);
@@ -92,6 +112,29 @@
 			const canvasCtx = letterCanvases[idx].getContext("2d");
 			canvasCtx.putImageData(letter, 0, 0);
 		});
+	}
+
+	async function debugProcessImage() {
+		const canvasCtx = canvasEl.getContext("2d");
+
+		var memCanvas = document.createElement("canvas");
+		memCanvas.height = canvas.height;
+		memCanvas.width = canvas.width;
+		var memCanvasCtx = memCanvas.getContext("2d");
+		memCanvasCtx.drawImage(inputImgEl, 0, 0, canvas.width, canvas.height);
+
+		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+		const processedImage = await imageProcessing.imageProcessing(image);
+		imageProcessing.worker.postMessage({ msg: "imageProcessing", data: image, debug: true });
+
+		const payload = processedImage.data.payload;
+
+		if (typeof payload === "string" && payload.toLowerCase().includes("error")) {
+			error = processedImage.data.payload;
+			return;
+		}
+		canvasCtx.putImageData(payload, 0, 0);
+		
 	}
 
 	async function solveBoard() {
@@ -155,17 +198,7 @@
 			error = "Sorry! Your browser does not support the features needed to run Roggle";
 		}
 
-		loadingWorker = true;
-		await imageProcessing.load();
-		loadingWorker = false;
-
-		// try {
-		// 	const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-		// 	videoEl.srcObject = stream;
-		// 	videoEl.play();
-		// } catch (e) {
-		// 	console.error(e, "camera access denied");
-		// }
+		initializeWorker();
 	});
 </script>
 
@@ -174,19 +207,25 @@
 </header> -->
 <main class="split">
 	<section class="left">
-		left:
-
 		<div class="cam-canvas">
-			<!-- <video bind:this={videoEl} width={canvas.width} height={canvas.height} /> -->
-			<img
-				bind:this={videoEl}
-				src="/images/board5.jpg"
-				width={canvas.width}
-				height={canvas.height}
-			/>
+			{#if useCamera}
+				<Camera bind:context={inputImgEl} width={canvas.width} height={canvas.height} />
+			{:else}
+				<img
+					bind:this={inputImgEl}
+					src="/images/board5.jpg"
+					width={canvas.width}
+					height={canvas.height}
+					alt="a boggle board"
+				/>
+			{/if}
 		</div>
+		<label>
+			Use Camera
+			<input type="checkbox" bind:checked={useCamera} />
+		</label>
 
-		<button on:click={processImage} disabled={loadingWorker}>process image</button>
+		<button on:click={debugProcessImage} disabled={loadingWorker}>process image</button>
 
 		<div class="letter-canvas">
 			{#each Array.from(Array(16).keys()) as idx}
@@ -234,13 +273,11 @@
 		{/if}
 	</section>
 	<section class="right">
-		right:
 		<canvas bind:this={canvasEl} width={canvas.width} height={canvas.height} />
 	</section>
 </main>
 
 <style>
-
 	.split {
 		display: flex;
 		flex-direction: row;
@@ -250,26 +287,25 @@
 		align-items: center;
 	}
 
-	.left {
-		width: 40%;
+	.left,
+	.right {
 		height: 100%;
 		overflow: auto;
-		display: flex; 
+		display: flex;
 		flex-direction: column;
 		align-items: center;
+	}
+
+	.left {
+		width: 40%;
 		background-color: rgb(227, 227, 227);
-		box-shadow: 3px 0px 3px rgba(0, 0, 0, 0.292)
+		box-shadow: 3px 0px 3px rgba(0, 0, 0, 0.292);
 	}
 
 	.right {
 		width: 60%;
-		height: 100%;
-		overflow: auto;
-
 	}
 
-
 	.cam-canvas {
-		width: 95%;
 	}
 </style>

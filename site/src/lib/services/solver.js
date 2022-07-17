@@ -20,7 +20,7 @@ class Solver {
 
 	load() {
 		this._status = {};
-		this.worker = new Worker("/js/solver/roggle.worker.js", { type: "module" }); // initialize a module web worker to allow for es2015 imports
+		this.worker = new Worker("/js/solver/solver.worker.js", { type: "module" }); // initialize a module web worker to allow for es2015 imports
 
 		this.worker.onmessage = (e) => {
 			if (e.data.error) {
