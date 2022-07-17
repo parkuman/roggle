@@ -1,5 +1,5 @@
 <script>
-	import roggle from "$lib/services/roggle";
+	import solver from "$lib/services/solver";
 	import imageProcessing from "$lib/services/imageProcessing";
 	import { onMount } from "svelte";
 
@@ -103,7 +103,7 @@
 		const start = new Date();
 
 		try {
-			const res = await roggle.solve(board);
+			const res = await solver.solve(board);
 
 			if (res.data.solutions === "") {
 				solutions = [];
@@ -169,87 +169,107 @@
 	});
 </script>
 
-<main>
-	<header>
-		<img src="/images/roggle.png" alt="roggle logo" width="200" />
-	</header>
+<!-- <header>
+	<img src="/images/roggle.png" alt="roggle logo" width="200" />
+</header> -->
+<main class="split">
+	<section class="left">
+		left:
 
-	<div class="cam-canvas">
-		<!-- <video bind:this={videoEl} width={canvas.width} height={canvas.height} /> -->
-		<img bind:this={videoEl} src="/images/board5.jpg" width={canvas.width} height={canvas.height} />
-		<canvas bind:this={canvasEl} width={canvas.width} height={canvas.height} />
-	</div>
-
-	<button on:click={processImage} disabled={loadingWorker}>process image</button>
-
-	<div class="letter-canvas">
-		{#each Array.from(Array(16).keys()) as idx}
-			<canvas
-				bind:this={letterCanvases[idx]}
-				width={letterCanvasDimensions[idx].width}
-				height={letterCanvasDimensions[idx].height}
+		<div class="cam-canvas">
+			<!-- <video bind:this={videoEl} width={canvas.width} height={canvas.height} /> -->
+			<img
+				bind:this={videoEl}
+				src="/images/board5.jpg"
+				width={canvas.width}
+				height={canvas.height}
 			/>
-			{#if (idx + 1) % 4 === 0}
-				<br />
-			{/if}
-		{/each}
-	</div>
-	<button on:click={getLetters} disabled={loadingWorker}>get letters</button>
+		</div>
 
-	<form on:submit|preventDefault={solveBoard}>
-		<p>Please input the N x M board as rows separated by spaces. For qu tile just put q.</p>
-		<input type="text" style:margin-bottom="20px" bind:value={board} />
-		<button on:click={extractBoard} type="button" disabled={extractingBoard || loadingWorker || !wasmSupported}
-			>Extract board from image</button
-		>
-		<button disabled={solving || !wasmSupported} type="submit"
-			>{solving ? "Solving..." : "Solve"}</button
-		>
-	</form>
+		<button on:click={processImage} disabled={loadingWorker}>process image</button>
 
-	{#if error}
-		<p style:color="red">{error}</p>
-	{/if}
-	{#if !solving && solutions}
-		<tbody>
-			{#if solutions.length === 0}
-				<p>no solutions!</p>
-			{:else}
-				{#each solutions as { word, points }}
-					<tr>
-						<p>{word} ({points} pt{points > 1 ? "s" : ""})</p>
-					</tr>
-				{/each}
-			{/if}
-		</tbody>
-	{/if}
+		<div class="letter-canvas">
+			{#each Array.from(Array(16).keys()) as idx}
+				<canvas
+					bind:this={letterCanvases[idx]}
+					width={letterCanvasDimensions[idx].width}
+					height={letterCanvasDimensions[idx].height}
+				/>
+				{#if (idx + 1) % 4 === 0}
+					<br />
+				{/if}
+			{/each}
+		</div>
+		<button on:click={getLetters} disabled={loadingWorker}>get letters</button>
+
+		<form on:submit|preventDefault={solveBoard}>
+			<p>Please input the N x M board as rows separated by spaces. For qu tile just put q.</p>
+			<input type="text" style:margin-bottom="20px" bind:value={board} />
+			<button
+				on:click={extractBoard}
+				type="button"
+				disabled={extractingBoard || loadingWorker || !wasmSupported}
+				>Extract board from image</button
+			>
+			<button disabled={solving || !wasmSupported} type="submit"
+				>{solving ? "Solving..." : "Solve"}</button
+			>
+		</form>
+
+		{#if error}
+			<p style:color="red">{error}</p>
+		{/if}
+		{#if !solving && solutions}
+			<tbody>
+				{#if solutions.length === 0}
+					<p>no solutions!</p>
+				{:else}
+					{#each solutions as { word, points }}
+						<tr>
+							<p>{word} ({points} pt{points > 1 ? "s" : ""})</p>
+						</tr>
+					{/each}
+				{/if}
+			</tbody>
+		{/if}
+	</section>
+	<section class="right">
+		right:
+		<canvas bind:this={canvasEl} width={canvas.width} height={canvas.height} />
+	</section>
 </main>
 
 <style>
-	.cam-canvas {
-		width: 100%;
+
+	.split {
 		display: flex;
 		flex-direction: row;
-		justify-content: center;
+		height: 100vh;
+		width: 100vw;
+		justify-content: space-between;
 		align-items: center;
 	}
 
-	button {
-		cursor: pointer;
-	}
-	main {
-		display: flex;
+	.left {
+		width: 40%;
+		height: 100%;
+		overflow: auto;
+		display: flex; 
 		flex-direction: column;
 		align-items: center;
+		background-color: rgb(227, 227, 227);
+		box-shadow: 3px 0px 3px rgba(0, 0, 0, 0.292)
 	}
 
-	form {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
+	.right {
+		width: 60%;
+		height: 100%;
+		overflow: auto;
+
 	}
 
-	header {
-		margin-bottom: 100px;
+
+	.cam-canvas {
+		width: 95%;
 	}
 </style>
