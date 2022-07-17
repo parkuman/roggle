@@ -1,5 +1,5 @@
 <script>
-	import roggle from "$lib/services/roggle";
+	import solver from "$lib/services/solver";
 	import imageProcessing from "$lib/services/imageProcessing";
 	import { onMount } from "svelte";
 
@@ -49,7 +49,7 @@
 		const start = new Date();
 
 		try {
-			const res = await roggle.solve(board);
+			const res = await solver.solve(board);
 
 			if (res.data.solutions === "") {
 				solutions = [];
@@ -127,8 +127,8 @@
 	</header>
 
 	<div class="cam-canvas">
-		<video bind:this={videoEl} width={canvas.width} height={canvas.height} />
-		<!-- <img bind:this={videoEl} src="/images/board1.jpg" width={canvas.width} height={canvas.height} /> -->
+		<!-- <video bind:this={videoEl} width={canvas.width} height={canvas.height} /> -->
+		<img bind:this={videoEl} src="/images/board1.jpg" width={canvas.width} height={canvas.height} />
 	</div>
 
 	<form on:submit|preventDefault={solveBoard}>
