@@ -223,4 +223,18 @@
 	.log-item {
 		margin-bottom: 50px;
 	}
+
+	@media only screen and (max-width: 1000px) {
+		.split {
+			flex-direction: column;
+			height: auto;
+		}
+		.left {
+			width: 100%;
+		}
+
+		.right {
+			width: 100%;
+		}
+	}
 </style>
