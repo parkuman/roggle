@@ -4,15 +4,15 @@
 	import solver from "$lib/services/solver";
 	import imageProcessing from "$lib/services/imageProcessing";
 	import Camera from "$lib/Camera.svelte";
+	import DebugImg from "$lib/DebugImg.svelte";
 
 	let board;
 	let solving = false;
-	let extractingBoard = false;
 	let solutions;
 	let error;
 	let wasmSupported = true;
 	let loadingWorker = true;
-	let worker = null;
+	let outputLog = []; // array containing all the outputted images from the worker
 
 	let letterCanvases = Array.from(Array(16));
 	let letterCanvasDimensions = Array.from(Array(16)).map((element) => ({
@@ -28,94 +28,22 @@
 		height: 480,
 	};
 
-	async function extractBoard() {
-		extractingBoard = true;
-		error = null;
-
-		var memCanvas = document.createElement("canvas");
-		memCanvas.height = canvas.height;
-		memCanvas.width = canvas.width;
-		var memCanvasCtx = memCanvas.getContext("2d");
-		memCanvasCtx.drawImage(inputImgEl, 0, 0, canvas.width, canvas.height);
-
-		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
-		const processedImage = await imageProcessing.imageProcessing(image, true);
-		const payload = processedImage.data.payload;
-
-		if (typeof payload === "string" && payload.toLowerCase().includes("error")) {
-			error = processedImage.data.payload;
-			return;
-		}
-
-		extractingBoard = false;
-		board = payload;
-	}
-
-	async function initializeWorker() {
-		loadingWorker = true;
-		// worker = new Worker("/js/image.worker.js");
-
-		// worker.onmessage = (e) => {
-		// 	console.log(e);
-		// };
-		// worker.postMessage({ msg: "load" });
-		
-		await imageProcessing.load();
-
-		imageProcessing.worker.onmessage = (e) => {
-			console.log("FROM SVELTE", e);
-		};;
-
-		loadingWorker = false;
-
-	}
-
-	async function processImage() {
-		const canvasCtx = canvasEl.getContext("2d");
-
-		var memCanvas = document.createElement("canvas");
-		memCanvas.height = canvas.height;
-		memCanvas.width = canvas.width;
-		var memCanvasCtx = memCanvas.getContext("2d");
-		memCanvasCtx.drawImage(inputImgEl, 0, 0, canvas.width, canvas.height);
-
-		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
-		const processedImage = await imageProcessing.imageProcessing(image);
-		const payload = processedImage.data.payload;
-
-		if (typeof payload === "string" && payload.toLowerCase().includes("error")) {
-			error = processedImage.data.payload;
-			return;
-		}
-		canvasCtx.putImageData(payload, 0, 0);
-	}
-
-	async function getLetters() {
-		var memCanvas = document.createElement("canvas");
-		memCanvas.height = canvas.height;
-		memCanvas.width = canvas.width;
-		var memCanvasCtx = memCanvas.getContext("2d");
-		memCanvasCtx.drawImage(inputImgEl, 0, 0, canvas.width, canvas.height);
-
-		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
-		const processedImage = await imageProcessing.imageProcessing(image);
-		const payload = processedImage.data.payload;
-
-		if (typeof payload === "string" && payload.toLowerCase().includes("error")) {
-			error = processedImage.data.payload;
-			return;
-		}
-
-		payload.forEach((letter, idx) => {
-			letterCanvasDimensions[idx].width = letter.width;
-			letterCanvasDimensions[idx].height = letter.height;
-			const canvasCtx = letterCanvases[idx].getContext("2d");
-			canvasCtx.putImageData(letter, 0, 0);
-		});
-	}
-
 	async function debugProcessImage() {
-		const canvasCtx = canvasEl.getContext("2d");
+		outputLog = [];
+
+		// override the usual image processing class' message handling
+		imageProcessing.worker.onmessage = (e) => {
+			console.log("[DEBUG] Received a message from worker: ", e);
+
+			if (e.data.msg === "imageProcessing") {
+				board = e.data.payload;
+			}
+
+			outputLog = [
+				...outputLog,
+				{ msg: e.data.msg, payload: e.data.payload, imageData: e.data.imageData },
+			];
+		};
 
 		var memCanvas = document.createElement("canvas");
 		memCanvas.height = canvas.height;
@@ -124,17 +52,7 @@
 		memCanvasCtx.drawImage(inputImgEl, 0, 0, canvas.width, canvas.height);
 
 		const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
-		const processedImage = await imageProcessing.imageProcessing(image);
 		imageProcessing.worker.postMessage({ msg: "imageProcessing", data: image, debug: true });
-
-		const payload = processedImage.data.payload;
-
-		if (typeof payload === "string" && payload.toLowerCase().includes("error")) {
-			error = processedImage.data.payload;
-			return;
-		}
-		canvasCtx.putImageData(payload, 0, 0);
-		
 	}
 
 	async function solveBoard() {
@@ -198,7 +116,9 @@
 			error = "Sorry! Your browser does not support the features needed to run Roggle";
 		}
 
-		initializeWorker();
+		loadingWorker = true;
+		await imageProcessing.load();
+		loadingWorker = false;
 	});
 </script>
 
@@ -227,29 +147,9 @@
 
 		<button on:click={debugProcessImage} disabled={loadingWorker}>process image</button>
 
-		<div class="letter-canvas">
-			{#each Array.from(Array(16).keys()) as idx}
-				<canvas
-					bind:this={letterCanvases[idx]}
-					width={letterCanvasDimensions[idx].width}
-					height={letterCanvasDimensions[idx].height}
-				/>
-				{#if (idx + 1) % 4 === 0}
-					<br />
-				{/if}
-			{/each}
-		</div>
-		<button on:click={getLetters} disabled={loadingWorker}>get letters</button>
-
 		<form on:submit|preventDefault={solveBoard}>
 			<p>Please input the N x M board as rows separated by spaces. For qu tile just put q.</p>
 			<input type="text" style:margin-bottom="20px" bind:value={board} />
-			<button
-				on:click={extractBoard}
-				type="button"
-				disabled={extractingBoard || loadingWorker || !wasmSupported}
-				>Extract board from image</button
-			>
 			<button disabled={solving || !wasmSupported} type="submit"
 				>{solving ? "Solving..." : "Solve"}</button
 			>
@@ -273,7 +173,21 @@
 		{/if}
 	</section>
 	<section class="right">
-		<canvas bind:this={canvasEl} width={canvas.width} height={canvas.height} />
+		{#each outputLog as log}
+			<div class="log-item">
+				<p><strong>{log.msg}</strong></p>
+				{#if log.payload}
+					<p>{log.payload}</p>
+				{/if}
+				{#if log.imageData}
+					<DebugImg
+						imageData={log.imageData}
+						width={log.imageData.width}
+						height={log.imageData.height}
+					/>
+				{/if}
+			</div>
+		{/each}
 	</section>
 </main>
 
@@ -299,13 +213,14 @@
 	.left {
 		width: 40%;
 		background-color: rgb(227, 227, 227);
-		box-shadow: 3px 0px 3px rgba(0, 0, 0, 0.292);
 	}
 
 	.right {
 		width: 60%;
+		margin: 0 10px;
 	}
 
-	.cam-canvas {
+	.log-item {
+		margin-bottom: 50px;
 	}
 </style>

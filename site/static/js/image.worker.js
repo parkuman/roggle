@@ -168,48 +168,56 @@ async function getOpenCV() {
 
 function imageProcessing({ msg, data, debug }) {
 	const img = cv.matFromImageData(data);
+	if (debug) postMessage({ msg: "Original", imageData: imageDataFromMat(img) });
 
 	// ========================== THRESHOLDING + FILTERING ==========================
 	cv.cvtColor(img, img, cv.COLOR_BGR2GRAY);
 	const originalGrayscaleImg = img.clone();
 	const workingImg = img.clone();
-	postMessage({ msg: "msg", payload: "grayscale" });
+	if (debug) postMessage({ msg: "Grayscaled", imageData: imageDataFromMat(img) });
+
 
 	// blur then sharpen to enhance edges
 	cv.medianBlur(img, img, 7);
+	if (debug) postMessage({ msg: "Blurred", imageData: imageDataFromMat(img) });
 
 	const sharpeningKernel = cv.matFromArray(3, 3, cv.CV_32FC1, [0, -1, 0, -1, 5, -1, 0, -1, 0]); // https://en.wikipedia.org/wiki/Kernel_(image_processing)#Details
 	cv.filter2D(img, img, -1, sharpeningKernel);
+	if (debug) postMessage({ msg: "Sharpened", imageData: imageDataFromMat(img) });
 
 	// binary threshold the image to get extremes
 	cv.threshold(img, img, 190, 255, cv.THRESH_BINARY);
+	if (debug) postMessage({ msg: "Binary Thresholded", imageData: imageDataFromMat(img) });
 
 	// use rectangular morphology to filter out extra tidbits / small unwanted thresholded pieces
 	const rectangularKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
 	cv.filter2D(img, img, -1, rectangularKernel);
+	if (debug) postMessage({ msg: "Filtered with Rectangular Kernel", imageData: imageDataFromMat(img) });
 	cv.morphologyEx(img, img, cv.MORPH_OPEN, rectangularKernel, new cv.Point(-1, 1), 2);
+	if (debug) postMessage({ msg: "Morphology With Rectangular Kernel", imageData: imageDataFromMat(img) });
 
 	// ========================== CONTOURS ==========================
 	const contours = new cv.MatVector();
 	const hierarchy = new cv.Mat();
-	// const contourImgBuffer = cv.Mat.zeros(img.rows, img.cols, cv.CV_8UC3);
 	const color = new cv.Scalar(255, 255, 255);
 
 	const minArea = 1000; // lower bound on acceptable contour areas (this is very small)
 	const maxArea = 20000; // upper bound on acceptable contour areas (this is huge, bigger than any letter block should be)
 	const contourData = []; // array to hold an object containing a contour, its area, and its bounding rectangle
 
+	let contourImgBuffer = cv.Mat.zeros(img.rows, img.cols, cv.CV_8UC3);
 
 	// find all contours in the image
 	cv.findContours(img, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
 
 	// get all contours and contour areas areas and add them to an array
 	for (let i = 0; i < contours.size(); i++) {
-		// uncomment to see all the contours identified
-		//cv.drawContours(contourImgBuffer, contours, i, color, 1, cv.LINE_8, hierarchy, 0);
-
 		const contour = contours.get(i);
 		const area = cv.contourArea(contour);
+
+		if (debug) {
+			cv.drawContours(contourImgBuffer, contours, i, color, 1, cv.LINE_8, hierarchy, 0);
+		}
 
 		// if within an acceptable area, save the contour and its area to an object and add it to the list of contours we think are decent enough to continue with
 		if (area > minArea && area < maxArea) {
@@ -220,6 +228,22 @@ function imageProcessing({ msg, data, debug }) {
 		}
 	}
 
+	if (debug) {
+		postMessage({ msg: "All Contours", imageData: imageDataFromMat(contourImgBuffer) });
+
+		// reset the image buffer and only draw the good ones
+		contourImgBuffer = cv.Mat.zeros(img.rows, img.cols, cv.CV_8UC3);
+		const goodContours = new cv.MatVector();
+		contourData.forEach(({ contour }, i) => {
+			goodContours.push_back(contour);
+			cv.drawContours(contourImgBuffer, goodContours, i, color, 1, cv.LINE_8, hierarchy, 0);
+
+		})
+		goodContours.delete();
+
+		postMessage({ msg: "Contours that Arent Massive or Tiny", imageData: imageDataFromMat(contourImgBuffer) });
+	}
+
 	const letterAreaDeviation = 3000; // acceptable range above and below median area of a letter contour
 	const letterData = []; // array to hold on object containing a letter block's midpoint point and it's bounding box
 
@@ -227,7 +251,7 @@ function imageProcessing({ msg, data, debug }) {
 	contourData.sort((c1, c2) => c1.area - c2.area);
 	const medianArea = median(contourData.map((c) => c.area));
 
-	// const goodContours = new cv.MatVector();
+	const goodContours = new cv.MatVector();
 
 	// loop over each contour and attempt to find the ones that are within an acceptable range of the median value
 	contourData.forEach((contour) => {
@@ -236,12 +260,10 @@ function imageProcessing({ msg, data, debug }) {
 			contour.area < medianArea + letterAreaDeviation &&
 			contour.area > medianArea - letterAreaDeviation
 		) {
-			// goodContours.push_back(contour.contour);
+			goodContours.push_back(contour.contour);
 			const boundingRect = cv.boundingRect(contour.contour);
 			const rectTopLeftX = boundingRect.x;
 			const rectTopLeftY = boundingRect.y;
-			const rectBottomRightX = rectTopLeftX + boundingRect.width;
-			const rectBottomRightY = rectTopLeftY + boundingRect.height;
 
 			letterData.push({
 				x: Math.floor(rectTopLeftX + boundingRect.width / 2),
@@ -253,31 +275,43 @@ function imageProcessing({ msg, data, debug }) {
 					height: boundingRect.height,
 				},
 			});
-
-			let topLeft = new cv.Point(rectTopLeftX, rectTopLeftY);
-			let bottomRight = new cv.Point(rectBottomRightX, rectBottomRightY);
-			cv.rectangle(workingImg, topLeft, bottomRight, color, 2, cv.LINE_AA, 0);
 		}
 	});
 
-	postMessage({ msg: "msg", payload: "done contours" });
+	if (debug) {
+		// draw only the good contours (ideally this should only have the letter boxes at this point)
+		for (let i = 0; i < goodContours.size(); i++) {
+			cv.drawContours(contourImgBuffer, goodContours, i, color, 1, cv.LINE_8, hierarchy, 0);
+		}
+		postMessage({ msg: `Contours Within A Range of ${letterAreaDeviation} from the Median: ${medianArea}`, imageData: imageDataFromMat(contourImgBuffer) });
+	}
 
-
-	// draw only the good contours (ideally this should only have the letter boxes at this point)
-	// for (let i = 0; i < goodContours.size(); i++) {
-	// 	cv.drawContours(contourImgBuffer, goodContours, i, color, 1, cv.LINE_8, hierarchy, 0);
-	// }
+	goodContours.delete();
+	contours.delete();
+	hierarchy.delete();
+	contourImgBuffer.delete();
 
 	// ========================== ROW FINDING ALGORITHM ==========================
 	let pointsToSearch = letterData;
 	let sortedPoints = [];
 	let maxRowSize = null;
 
-	cv.cvtColor(workingImg, workingImg, cv.COLOR_GRAY2BGR); // convert from grayscale to rgb so we can add colored info ontop of the image
-	// uncomment to see all the midpoints of all the letters identified
-	// pointsToSearch.forEach((pt) => {
-	// 	cv.circle(workingImg, new cv.Point(pt.x, pt.y), 3, [255, 0, 0, 255], 3);
-	// });
+	if (debug) {
+		cv.cvtColor(workingImg, workingImg, cv.COLOR_GRAY2BGR); // convert from grayscale to rgb so we can add colored info ontop of the image
+		pointsToSearch.forEach((pt) => {
+			const rectBottomRightX = pt.boundingBox.x + pt.boundingBox.width;
+			const rectBottomRightY = pt.boundingBox.y + pt.boundingBox.height;
+
+			const topLeft = new cv.Point(pt.boundingBox.x, pt.boundingBox.y);
+			const bottomRight = new cv.Point(rectBottomRightX, rectBottomRightY);
+
+			cv.circle(workingImg, new cv.Point(pt.x, pt.y), 3, [255, 0, 0, 255], 3);
+			cv.rectangle(workingImg, topLeft, bottomRight, color, 2, cv.LINE_AA, 0);
+
+		});
+		postMessage({ msg: "All Midpoints & Bounding Boxes", imageData: imageDataFromMat(workingImg) });
+	}
+
 
 	while (pointsToSearch.length > 0) {
 		const boundingPointsSum = pointsToSearch
@@ -292,15 +326,21 @@ function imageProcessing({ msg, data, debug }) {
 		const topLeft = new cv.Point(boundingPointsSum[0].x, boundingPointsSum[0].y);
 		const topRight = new cv.Point(boundingPointsDiff[lastIdx].x, boundingPointsDiff[lastIdx].y);
 
+		let rowColor = [
+			Math.round(Math.random() * 255),
+			Math.round(Math.random() * 255),
+			Math.round(Math.random() * 255),
+			255,
+		];
+
+		if (debug) {
+			cv.line(workingImg, topLeft, topRight, rowColor, 3);
+			postMessage({ msg: "Row Finding Algorithm -- Draw Line Across Row", imageData: imageDataFromMat(workingImg) });
+		}
+
 		const pointsInRow = [];
 		const remainingPointsToSearch = [];
 
-		// let rowColor = [
-		// 	Math.round(Math.random() * 255),
-		// 	Math.round(Math.random() * 255),
-		// 	Math.round(Math.random() * 255),
-		// 	255,
-		// ];
 		pointsToSearch.forEach((pt) => {
 			const distance = distanceFromLine(topLeft, topRight, pt);
 
@@ -308,7 +348,11 @@ function imageProcessing({ msg, data, debug }) {
 				pointsInRow.push(pt);
 
 				// uncomment to display unique colored dot on each box in the row
-				// cv.circle(workingImg, new cv.Point(pt.x, pt.y), 3, rowColor, 3);
+				if (debug) {
+					cv.circle(workingImg, new cv.Point(pt.x, pt.y), 3, rowColor, 3);
+					postMessage({ msg: "Row Finding Algorithm", imageData: imageDataFromMat(workingImg) });
+
+				}
 			} else {
 				remainingPointsToSearch.push(pt);
 			}
@@ -342,7 +386,7 @@ function imageProcessing({ msg, data, debug }) {
 	const IMG_SIZE = 48;			 // our classification model takes in images that are 48x48 pixels
 	const IMG_AREA = IMG_SIZE * IMG_SIZE;
 
-	sortedPoints.forEach((pt) => {
+	sortedPoints.forEach((pt, idx) => {
 		const boundingRect = new cv.Rect(
 			pt.boundingBox.x,
 			pt.boundingBox.y,
@@ -355,18 +399,22 @@ function imageProcessing({ msg, data, debug }) {
 		cv.resize(roi, roi, new cv.Size(IMG_SIZE, IMG_SIZE), 0, 0, cv.INTER_AREA);
 		lettersCropped.push(roi);
 
-		// uncomment to print numbered index beside each point
-		// cv.putText(
-		// 	workingImg,
-		// 	idx.toString(),
-		// 	new cv.Point(pt.x + 10, pt.y + 10),
-		// 	cv.FONT_HERSHEY_SIMPLEX,
-		// 	1,
-		// 	[255, 0, 0, 255],
-		// 	2,
-		// 	cv.LINE_AA,
-		// );
+		if (debug) {
+			// print numbered index beside each point
+			cv.putText(
+				workingImg,
+				idx.toString(),
+				new cv.Point(pt.x + 10, pt.y + 10),
+				cv.FONT_HERSHEY_SIMPLEX,
+				1,
+				[255, 0, 0, 255],
+				2,
+				cv.LINE_AA,
+			);
+		}
 	});
+
+	if (debug) postMessage({ msg: "Numbered", imageData: imageDataFromMat(workingImg) });
 
 	// ========================== PREDICTION ==========================
 	const TOTAL_LETTERS = lettersCropped.length;
@@ -387,26 +435,23 @@ function imageProcessing({ msg, data, debug }) {
 	let predictedBoard = "";
 	for (let i = 0; i < TOTAL_LETTERS; i++) {
 		const letterPredictionsArr = Array.from(predictions).slice(i * 26, i * 26 + 26);
-		const mostLikelyLetter = Math.max(...letterPredictionsArr);
-		const letterIndex = letterPredictionsArr.indexOf(mostLikelyLetter);
+		const highestPredictionConfidence = Math.max(...letterPredictionsArr);
+		const letterIndex = letterPredictionsArr.indexOf(highestPredictionConfidence);
 		predictedBoard += CLASSES[letterIndex];
 
 		// if we are at the end of a row, add a space to indicate a new row in the board
 		if ((i + 1) % maxRowSize === 0) {
 			predictedBoard += " ";
 		}
+
+		if (debug) postMessage({ msg: `${CLASSES[letterIndex]}, ${highestPredictionConfidence.toFixed(3)}`, imageData: imageDataFromMat(lettersCropped[i]) });
 	}
 
 	// by now, predictedBoard should look something like "abcd efgh ijlm opqr" for a 4x4 board for example
 	postMessage({ msg, payload: predictedBoard });
 
-	// ========================== RETURN + CLEANUP ==========================
-	// postMessage({ msg, payload: lettersCropped });
-	// postMessage({ msg, payload: imageDataFromMat(workingImg) });
 
-	// contourImgBuffer.delete();
-	contours.delete();
-	hierarchy.delete();
+	// ========================== CLEANUP ==========================
 	img.delete();
 	workingImg.delete();
 	originalGrayscaleImg.delete();

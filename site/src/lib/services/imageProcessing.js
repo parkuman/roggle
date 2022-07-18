@@ -32,9 +32,9 @@ class ImageProcessing {
 		return this._dispatch({ msg: "load" });
 	}
 
-	imageProcessing(data, debug=false) {
+	imageProcessing(data) {
 		if (!this.worker) this.load();
-		return this._dispatch({ msg: "imageProcessing", data, debug });
+		return this._dispatch({ msg: "imageProcessing", data });
 	}
 }
 
