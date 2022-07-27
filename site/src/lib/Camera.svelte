@@ -40,11 +40,9 @@
 	$: context = videoEl;
 </script>
 
-<main>
-	<!-- svelte-ignore a11y-media-has-caption -->
-	<video bind:this={videoEl} {width} {height} />
+<!-- svelte-ignore a11y-media-has-caption -->
+<video bind:this={videoEl} {width} {height} style="object-fit: cover;" />
 
-	{#if errorMessage}
-		<p style="color: red;">{errorMessage}</p>
-	{/if}
-</main>
+{#if errorMessage}
+	<p style="color: red;">{errorMessage}</p>
+{/if}

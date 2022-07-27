@@ -5,12 +5,12 @@
 	import imageProcessing from "$lib/services/imageProcessing";
 	import Camera from "$lib/Camera.svelte";
 	import DebugImg from "$lib/DebugImg.svelte";
+	import BoardGrid from "$lib/BoardGrid.svelte";
 
 	let board;
 	let solving = false;
 	let solutions;
 	let error;
-	let wasmSupported = true;
 	let loadingWorker = true;
 	let outputLog = []; // array containing all the outputted images from the worker
 
@@ -111,21 +111,13 @@
 	}
 
 	onMount(async () => {
-		wasmSupported = !(typeof WebAssembly === "undefined");
-		if (!wasmSupported) {
-			error = "Sorry! Your browser does not support the features needed to run Roggle";
-		}
-
 		loadingWorker = true;
 		await imageProcessing.load();
 		loadingWorker = false;
 	});
 </script>
 
-<!-- <header>
-	<img src="/images/roggle.png" alt="roggle logo" width="200" />
-</header> -->
-<main class="split">
+<div class="split">
 	<section class="left">
 		<div class="cam-canvas">
 			{#if useCamera}
@@ -150,9 +142,7 @@
 		<form on:submit|preventDefault={solveBoard}>
 			<p>Please input the N x M board as rows separated by spaces. For qu tile just put q.</p>
 			<input type="text" style:margin-bottom="20px" bind:value={board} />
-			<button disabled={solving || !wasmSupported} type="submit"
-				>{solving ? "Solving..." : "Solve"}</button
-			>
+			<button disabled={solving} type="submit">{solving ? "Solving..." : "Solve"}</button>
 		</form>
 
 		{#if error}
@@ -171,6 +161,7 @@
 				{/if}
 			</tbody>
 		{/if}
+		<BoardGrid {board} />
 	</section>
 	<section class="right">
 		{#each outputLog as log}
@@ -189,7 +180,7 @@
 			</div>
 		{/each}
 	</section>
-</main>
+</div>
 
 <style>
 	.split {

@@ -2,5 +2,66 @@
 	margin: 0;
 	padding: 0;
 	box-sizing: border-box;
+	--color-bg: rgba(245, 45, 41);
+	--header-height: 70px;
 }
 
+body {
+	background-color: var(--color-bg);
+	color: white;
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+		Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+	scroll-behavior: smooth;
+}
+
+header {
+	width: 100%;
+	height: var(--header-height);
+}
+
+header img {
+	display: block;
+	margin: 0 auto;
+	padding: 5px 0;
+	max-height: var(--header-height);
+}
+
+main {
+	margin: 50px auto;
+	overflow: hidden;
+	max-width: 800px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+}
+
+h1 {
+	font-size: 1.875rem;
+	font-weight: bold;
+}
+
+button {
+	border: none;
+	cursor: pointer;
+}
+
+button.btn-big {
+	padding: 10px 20px;
+	border-radius: 15px;
+	font-size: 1.5rem;
+	font-weight: bold;
+	text-transform: uppercase;
+	background-color: blueviolet;
+	color: white;
+}
+
+button.btn-small {
+	padding: 8px 16px;
+	border-radius: 15px;
+	font-size: 1rem;
+	font-weight: bold;
+	text-transform: uppercase;
+	background-color: blue;
+	color: white;
+}
