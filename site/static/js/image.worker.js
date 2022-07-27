@@ -312,8 +312,18 @@ function imageProcessing({ msg, data, debug }) {
 		postMessage({ msg: "All Midpoints & Bounding Boxes", imageData: imageDataFromMat(workingImg) });
 	}
 
+	let pointSearchCounter = 0;
 
 	while (pointsToSearch.length > 0) {
+		// if we've searched all of them and only sorted one point (or none), just give up silly
+		if (pointSearchCounter > letterData.length && sortedPoints.length <= 1) {
+			postMessage({
+				msg,
+				payload: "Error: Could not sort points into rows.",
+			});
+			break;
+		} 
+
 		const boundingPointsSum = pointsToSearch
 			.map((pt) => ({ x: pt.x, y: pt.y, sum: pt.x + pt.y }))
 			.sort((a, b) => a.sum - b.sum);
@@ -377,7 +387,7 @@ function imageProcessing({ msg, data, debug }) {
 		// add the items found in the row sorted by x to the overall sorted points array
 		sortedPoints.push(...pointsInRow.sort((pt1, pt2) => pt1.x - pt2.x));
 
-		// TODO: break out of here if it isn't getting smaller
+		pointSearchCounter++;
 	}
 
 

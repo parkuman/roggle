@@ -30,12 +30,12 @@
 		const processedImage = await imageProcessing.imageProcessing(image);
 		const payload = processedImage.data.payload;
 
+		extractingBoard = false;
 		if (typeof payload === "string" && payload.toLowerCase().includes("error")) {
 			error = processedImage.data.payload;
 			return;
 		}
 
-		extractingBoard = false;
 		board = payload;
 		pictureTaken = true;
 	}
@@ -73,13 +73,17 @@
 	{#if pictureTaken}
 		<div class="confirm-board">
 			<h1>Is this your board?</h1>
-			<BoardGrid {board} />
 			<input disabled type="text" style:margin-bottom="20px" bind:value={board} />
 			<button class="btn-big" on:click={dismissConfirmScreen}>No, Retake</button>
+			<a href={`/solve?board=${board.trim().replace(" ", "%20")}`}>
+				<button class="btn-big" style:background-color="green" on:click={dismissConfirmScreen}
+					>Close Enough!</button
+				></a
+			>
 		</div>
 	{/if}
 	{#if error}
-		<p style:color="red">{error}</p>
+		<p>{error}</p>
 	{/if}
 </main>
 

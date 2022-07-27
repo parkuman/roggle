@@ -1,28 +1,54 @@
 <script>
-	export let board = "";
+	export let board;
 	export let validBoard;
+	export let rows = 4;
+	export let cols = 4;
 
-	let rows = 2;
-	let cols = 2;
+	let modifiedGrid = false;
 
-	// $: splitBoard = board.split(" ");
-	// $: letterGrid = getLetterGrid(splitBoard);
-	// $: validBoard = checkValidBoard(splitBoard);
-	$: gridEls = generateGridArray(rows, cols);
-	$: outputBoard = generateBoardFromGrid(gridEls);
-	$: console.log(gridEls);
+	grid = generateGridArray(rows, cols);
+	$: prevGrid = grid;
+	$: grid = generateGridArray(rows, cols);
+	$: board = generateBoardFromGrid(grid);
+	$: validBoard = checkValidBoard(board);
 
 	function generateGridArray(r, c) {
-		const grid = [];
-		Array.from(Array(r)).forEach((_) => {
-			grid.push(
-				Array.from(Array(c)).map((element) => ({
-					element,
-					value: "",
-				})),
+		const tmpGrid = [];
+		Array.from(Array(r)).forEach((_, i) => {
+			tmpGrid.push(
+				Array.from(Array(c)).map((_, j) => {
+					if (
+						prevGrid !== undefined &&
+						prevGrid[i] !== undefined &&
+						prevGrid[i][j] !== undefined &&
+						prevGrid[i][j].value !== undefined
+					) {
+						return {
+							value: prevGrid[i][j].value,
+						};
+					}
+
+					return {
+						value: "",
+					};
+				}),
 			);
 		});
-		return grid;
+
+		// if we received a board and its valid, apply it to the grid
+		if (!modifiedGrid && board !== undefined && checkValidBoard(board)) {
+			const splitBoardStr = board.split(" ");
+			rows = splitBoardStr.length;
+			cols = splitBoardStr[0].length;
+
+			splitBoardStr.forEach((row, i) => {
+				Array.from(row).forEach((letter, j) => {
+					tmpGrid[i][j].value = letter;
+				});
+			});
+		}
+
+		return tmpGrid;
 	}
 
 	function generateBoardFromGrid(grid) {
@@ -39,29 +65,21 @@
 		return boardString;
 	}
 
-	// function getLetterGrid(boardRows) {
-	// 	const grid = [];
-	// 	if (!boardRows || !boardRows.length || boardRows.length === 0) return grid;
-	// 	boardRows.forEach((row) => {
-	// 		grid.push(Array.from(row));
-	// 	});
-	// 	return grid;
-	// }
-
-	// function checkValidBoard(boardRows) {
-	// 	const rowLen = boardRows[0].length;
-	// 	if (rowLen === 0) return false;
-	// 	for (let i = 0; i < boardRows.length; i++) {
-	// 		if (boardRows[i].length != rowLen) {
-	// 			return false;
-	// 		}
-	// 	}
-	// 	return true;
-	// }
+	function checkValidBoard(boardStr) {
+		const splitBoardStr = boardStr.split(" ");
+		const rowLen = splitBoardStr[0].length;
+		if (rowLen === 0) return false;
+		for (let i = 0; i < splitBoardStr.length; i++) {
+			if (splitBoardStr[i].length != rowLen) {
+				return false;
+			}
+		}
+		return true;
+	}
 
 	function handleGridInput(val, i, j) {
-		const width = gridEls[i].length,
-			height = gridEls.length,
+		const width = grid[i].length,
+			height = grid.length,
 			prevCol = j - 1,
 			nextCol = j + 1,
 			prevRow = i - 1,
@@ -79,77 +97,77 @@
 		// matrix is reached
 		if (val.keyCode == tab) {
 			nextCol != width
-				? gridEls[i][nextCol].element.focus()
+				? grid[i][nextCol].ref.focus()
 				: i != height - 1
-				? gridEls[nextRow][0].element.focus()
-				: gridEls[0][0].element.focus();
+				? grid[nextRow][0].ref.focus()
+				: grid[0][0].ref.focus();
 			return;
 		}
 
 		// Loop around single row with right and left arrows
 		if (val.keyCode == right) {
-			nextCol != width ? gridEls[i][nextCol].element.focus() : gridEls[i][0].element.focus();
+			nextCol != width ? grid[i][nextCol].ref.focus() : grid[i][0].ref.focus();
 			return;
 		}
 		if (val.keyCode == left) {
-			j != 0 ? gridEls[i][prevCol].element.focus() : gridEls[i][width - 1].element.focus();
+			j != 0 ? grid[i][prevCol].ref.focus() : grid[i][width - 1].ref.focus();
 			return;
 		}
 
 		// loop around single column with up and down arrows
 		if (val.keyCode == up) {
-			i != 0 ? gridEls[prevRow][j].element.focus() : gridEls[height - 1][j].element.focus();
+			i != 0 ? grid[prevRow][j].ref.focus() : grid[height - 1][j].ref.focus();
 			return;
 		}
 
 		if (val.keyCode == down) {
-			i != height - 1 ? gridEls[nextRow][j].element.focus() : gridEls[0][j].element.focus();
+			i != height - 1 ? grid[nextRow][j].ref.focus() : grid[0][j].ref.focus();
 			return;
 		}
 
 		if ((val.keyCode >= 65 && val.keyCode <= 90) || (val.keyCode >= 97 && val.keyCode <= 122)) {
-			gridEls[i][j].value = val.key;
+			grid[i][j].value = val.key;
 			nextCol != width
-				? gridEls[i][nextCol].element.focus()
+				? grid[i][nextCol].ref.focus()
 				: i != height - 1
-				? gridEls[nextRow][0].element.focus()
-				: gridEls[0][0].element.focus();
+				? grid[nextRow][0].ref.focus()
+				: grid[0][0].ref.focus();
 			return true;
 		}
 		return false;
 	}
 
 	function addRow() {
+		modifiedGrid = true;
 		rows = rows + 1;
 	}
 
 	function removeRow() {
+		modifiedGrid = true;
 		rows = rows - 1;
 	}
 
 	function addCol() {
+		modifiedGrid = true;
 		cols = cols + 1;
 	}
 
 	function removeCol() {
+		modifiedGrid = true;
 		cols = cols - 1;
-	}
-
-	function hello(node, idx) {
-		gridEls[idx.i][idx.j].element = node;
 	}
 </script>
 
 <div class="grid-wrapper">
 	<div class="grid">
-		{#each gridEls as gridRow, i}
+		{#each grid as gridRow, i}
 			<div class="row">
-				{#each gridRow as gridCol, j}
+				{#each gridRow as gridCol, j (gridCol)}
 					<input
 						class="column"
 						type="text"
-						bind:value={gridEls[i][j].value}
-						use:hello={{ i, j }}
+						bind:value={gridCol.value}
+						bind:this={gridCol.ref}
 						on:keydown|preventDefault={(e) => handleGridInput(e, i, j)}
 					/>
 				{/each}
@@ -166,10 +184,6 @@
 		<button on:click={removeCol}>-</button>
 	</div>
 </div>
-
-<br />
-
-<input bind:value={outputBoard} type="text" style:width="300px" />
 
 <style>
 	:root {

@@ -1,8 +1,13 @@
 <script>
 	import solver from "$lib/services/solver";
 	import BoardGrid from "$lib/BoardGrid.svelte";
+	import { page } from "$app/stores";
 
-	let board;
+	let board = $page.url.searchParams.get("board")
+		? $page.url.searchParams.get("board").toString().replace("%20", " ")
+		: "";
+	let rows = 4;
+	let cols = 4;
 	let solutions;
 	let error;
 	let solving = false;
@@ -12,7 +17,7 @@
 		solutions = null;
 		solving = true;
 		error = null;
-		// TODO: validate board
+
 		console.log("Solving...");
 		const start = new Date();
 
@@ -67,10 +72,13 @@
 </script>
 
 <main>
-	<BoardGrid {board} bind:validBoard />
+	<BoardGrid bind:board bind:validBoard bind:rows bind:cols />
 
 	<form on:submit|preventDefault={solveBoard}>
-		<p>Alternatively you can input the N x M board below as rows separated by spaces. For qu tile just put q.</p>
+		<p>
+			Alternatively you can input the N x M board below as rows separated by spaces. For qu tile
+			just put q.
+		</p>
 		<input type="text" style:margin-bottom="20px" bind:value={board} />
 		<button
 			class="btn-big"
@@ -104,5 +112,9 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+	}
+
+	input {
+		width: 100%;
 	}
 </style>
