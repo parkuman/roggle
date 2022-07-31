@@ -88,19 +88,26 @@
 			up = 38,
 			right = 39,
 			down = 40,
-			tab = 9;
+			tab = 9,
+			backspace = 8;
 
-		// Preserve tab functionality,
-		// loop to first input of next row
-		// when end of row is reached or to
-		// first row and column when end of
-		// matrix is reached
 		if (val.keyCode == tab) {
 			nextCol != width
 				? grid[i][nextCol].ref.focus()
 				: i != height - 1
 				? grid[nextRow][0].ref.focus()
 				: grid[0][0].ref.focus();
+			return;
+		}
+
+		if (val.keyCode == backspace) {
+			grid[i][j].value = "";
+			prevCol != -1
+				? grid[i][prevCol].ref.focus()
+				: i != 0
+				? grid[prevRow][width - 1].ref.focus()
+				: grid[height-1][width - 1].ref.focus();
+
 			return;
 		}
 
