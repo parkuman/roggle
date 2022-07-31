@@ -175,7 +175,7 @@
 						type="text"
 						bind:value={gridCol.value}
 						bind:this={gridCol.ref}
-						on:keydown|preventDefault={(e) => handleGridInput(e, i, j)}
+						on:keyup|preventDefault={(e) => handleGridInput(e, i, j)}
 					/>
 				{/each}
 			</div>
