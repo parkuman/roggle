@@ -1,7 +1,8 @@
 <script>
 	import imageProcessing from "$lib/services/imageProcessing";
 	import Camera from "$lib/Camera.svelte";
-	import { onMount } from "svelte";
+	import { onMount, onDestroy } from "svelte";
+import Head from "../lib/Head.svelte";
 
 	let board;
 	let error;
@@ -9,6 +10,7 @@
 	let loadingWorker = true;
 	let pictureTaken = false;
 	let outputVideoEl;
+	let videoFeedInterval = null;
 
 	let imgProcOriginalOnMessage;
 	let imgProcBoxesOnMessage = (e) => {
@@ -80,21 +82,28 @@
 		imgProcOriginalOnMessage = imageProcessing.worker.onmessage;
 		overrideWorker();
 
-		setInterval(() => {
-			var memCanvas = document.createElement("canvas");
-			memCanvas.height = canvas.height;
-			memCanvas.width = canvas.width;
-			var memCanvasCtx = memCanvas.getContext("2d");
-			memCanvasCtx.drawImage(inputImgEl, 0, 0, canvas.width, canvas.height);
+		videoFeedInterval = setInterval(() => {
+			if (!pictureTaken) {
+				var memCanvas = document.createElement("canvas");
+				memCanvas.height = canvas.height;
+				memCanvas.width = canvas.width;
+				var memCanvasCtx = memCanvas.getContext("2d");
+				memCanvasCtx.drawImage(inputImgEl, 0, 0, canvas.width, canvas.height);
 
-			const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
-			imageProcessing.worker.postMessage({ msg: "imageProcessing", data: image, boxes: true });
+				const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+				imageProcessing.worker.postMessage({ msg: "imageProcessing", data: image, boxes: true });
+			}
 		}, 100);
+	});
+
+	onDestroy(() => {
+		clearInterval(videoFeedInterval);
 	});
 
 	$: isLoading = extractingBoard || loadingWorker;
 </script>
 
+<Head title="Scan From Picture | Roggle"/>
 <main>
 	<div class="cam-wrapper" style="width: {canvas.width}px; height: {canvas.height}px; ">
 		<canvas width={canvas.width} height={canvas.height} bind:this={outputVideoEl} />
@@ -108,8 +117,8 @@
 		style:cursor={isLoading ? "not-allowed" : "pointer"}
 	>
 		<svg width="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-			<circle cx="60" cy="60" r="50" fill="white" />
-			<circle cx="60" cy="60" r="58.5" stroke="white" stroke-width="3" />
+			<circle cx="60" cy="60" r="50" fill="#9c9c9c" />
+			<circle cx="60" cy="60" r="58.5" stroke="#9c9c9c" stroke-width="3" />
 		</svg>
 	</button>
 
@@ -163,6 +172,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		justify-content: space-evenly;
 		background-color: var(--color-bg);
 	}
 </style>

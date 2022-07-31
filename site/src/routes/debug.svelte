@@ -6,6 +6,7 @@
 	import Camera from "$lib/Camera.svelte";
 	import DebugImg from "$lib/DebugImg.svelte";
 	import BoardGrid from "$lib/BoardGrid.svelte";
+	import Head from "../lib/Head.svelte";
 
 	let board;
 	let solving = false;
@@ -117,6 +118,7 @@
 	});
 </script>
 
+<Head title="Debug | Roggle" />
 <div class="split">
 	<section class="left">
 		<div class="cam-canvas">
@@ -161,7 +163,6 @@
 				{/if}
 			</tbody>
 		{/if}
-		<BoardGrid {board} />
 	</section>
 	<section class="right">
 		{#each outputLog as log}
@@ -203,7 +204,7 @@
 
 	.left {
 		width: 40%;
-		background-color: rgb(227, 227, 227);
+	background-color: rgb(12, 12, 12);
 	}
 
 	.right {

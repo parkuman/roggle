@@ -106,7 +106,7 @@
 				? grid[i][prevCol].ref.focus()
 				: i != 0
 				? grid[prevRow][width - 1].ref.focus()
-				: grid[height-1][width - 1].ref.focus();
+				: grid[height - 1][width - 1].ref.focus();
 
 			return;
 		}
@@ -165,6 +165,8 @@
 	}
 </script>
 
+<p>Enter Your Board Below:</p>
+<br />
 <div class="grid-wrapper">
 	<div class="grid">
 		{#each grid as gridRow, i}
@@ -175,7 +177,7 @@
 						type="text"
 						bind:value={gridCol.value}
 						bind:this={gridCol.ref}
-						on:keyup|preventDefault={(e) => handleGridInput(e, i, j)}
+						on:keydown|preventDefault={(e) => handleGridInput(e, i, j)}
 					/>
 				{/each}
 			</div>
@@ -199,13 +201,15 @@
 	}
 	button {
 		width: 100%;
+		border: none;
+		border-radius: 0;
 	}
 
 	input {
 		width: var(--input-shape);
 		height: var(--input-shape);
+		text-align: center;
 		margin: 0;
-		border: none;
 	}
 
 	.grid-wrapper {
@@ -232,6 +236,12 @@
 		margin: 0;
 	}
 
+	.col-controls,
+	.row-controls {
+		overflow: hidden;
+		border: 1px solid rgba(var(--color-primary-rgb), 0.4);
+		border-radius: 5px;
+	}
 	.col-controls {
 		display: flex;
 		flex-direction: column;
@@ -249,6 +259,9 @@
 		);
 	}
 
+	.col-controls > button:first-of-type {
+		border-bottom: 1px solid rgba(var(--color-primary-rgb), 0.4);
+	}
 	.row-controls {
 		display: flex;
 		flex-direction: row;
@@ -259,5 +272,9 @@
 
 	.row-controls button {
 		height: var(--input-shape);
+	}
+
+	.row-controls > button:first-of-type {
+		border-right: 1px solid rgba(var(--color-primary-rgb), 0.4);
 	}
 </style>

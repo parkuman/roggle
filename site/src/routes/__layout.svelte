@@ -22,6 +22,17 @@
 {:else}
 	<slot />
 {/if}
+<footer>
+	<p>Want to know what's going on? Check out the <a href="/debug">debug page.</a></p>
+	<p>Created by <a href="https://prowe.ca" target="_blank">Parker Rowe</a></p>
+</footer>
 
 <style>
+
+	footer {
+		width: 100%;
+		border-top: solid 1px rgba(var(--color-primary-rgb), 0.4);
+		padding: 50px 0;
+		text-align: center;
+	}
 </style>

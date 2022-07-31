@@ -1,11 +1,13 @@
 <script>
+import Head from "../lib/Head.svelte";
+
 </script>
 
+<Head />
 <main>
 	<div class="welcome">
 		<h1>Roggle - A Free Online Boggle Solver!</h1>
 		<p>How would you like to enter your board?</p>
-		<br />
 		<a href="/picture"><button class="btn-big">Picture 📸</button></a>
 		<p>or</p>
 		<a href="/solve"><button class="btn-small">Manually</button></a>
@@ -13,14 +15,17 @@
 </main>
 
 <style>
-	button {
-		margin-bottom: 20px;
+	main {
+		height: calc(100vh - var(--header-height));
 	}
 
 	.welcome {
+		max-width: 95%;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		text-align: center;
+		justify-content: space-evenly;
+		height: 100%;
 	}
 </style>
