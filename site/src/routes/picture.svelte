@@ -8,6 +8,16 @@
 	let extractingBoard = false;
 	let loadingWorker = true;
 	let pictureTaken = false;
+	let outputVideoEl;
+
+	let imgProcOriginalOnMessage;
+	let imgProcBoxesOnMessage = (e) => {
+		console.log("Received a message from worker: ", e);
+
+		if (e.data.msg === "boxes") {
+			writeVideoFrame(e.data.imageData);
+		}
+	};
 
 	let inputImgEl;
 	const canvas = {
@@ -16,6 +26,7 @@
 	};
 
 	async function extractBoard() {
+		restoreWorker();
 		pictureTaken = false;
 		extractingBoard = true;
 		error = null;
@@ -30,6 +41,8 @@
 		const processedImage = await imageProcessing.imageProcessing(image);
 		const payload = processedImage.data.payload;
 
+		overrideWorker();
+
 		extractingBoard = false;
 		if (typeof payload === "string" && payload.toLowerCase().includes("error")) {
 			error = processedImage.data.payload;
@@ -40,6 +53,20 @@
 		pictureTaken = true;
 	}
 
+	function overrideWorker() {
+		// replace it with the live boxes feed.
+		imageProcessing.worker.onmessage = imgProcBoxesOnMessage;
+	}
+
+	function restoreWorker() {
+		imageProcessing.worker.onmessage = imgProcOriginalOnMessage;
+	}
+
+	function writeVideoFrame(imageData) {
+		const outCtx = outputVideoEl.getContext("2d");
+		outCtx.putImageData(imageData, 0, 0);
+	}
+
 	function dismissConfirmScreen() {
 		pictureTaken = false;
 	}
@@ -48,6 +75,21 @@
 		loadingWorker = true;
 		await imageProcessing.load();
 		loadingWorker = false;
+
+		// override the usual image processing class' message handling
+		imgProcOriginalOnMessage = imageProcessing.worker.onmessage;
+		overrideWorker();
+
+		setInterval(() => {
+			var memCanvas = document.createElement("canvas");
+			memCanvas.height = canvas.height;
+			memCanvas.width = canvas.width;
+			var memCanvasCtx = memCanvas.getContext("2d");
+			memCanvasCtx.drawImage(inputImgEl, 0, 0, canvas.width, canvas.height);
+
+			const image = memCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+			imageProcessing.worker.postMessage({ msg: "imageProcessing", data: image, boxes: true });
+		}, 100);
 	});
 
 	$: isLoading = extractingBoard || loadingWorker;
@@ -55,7 +97,8 @@
 
 <main>
 	<div class="cam-wrapper" style="width: {canvas.width}px; height: {canvas.height}px; ">
-		<Camera bind:context={inputImgEl} width={canvas.width} height={canvas.height} />
+		<canvas width={canvas.width} height={canvas.height} bind:this={outputVideoEl} />
+		<Camera bind:context={inputImgEl} hide width={canvas.width} height={canvas.height} />
 	</div>
 	<button
 		type="button"
@@ -76,9 +119,7 @@
 			<input disabled type="text" style:margin-bottom="20px" bind:value={board} />
 			<button class="btn-big" on:click={dismissConfirmScreen}>No, Retake</button>
 			<a href={`/solve?board=${board.trim().replace(" ", "%20")}`}>
-				<button class="btn-big" style:background-color="green" on:click={dismissConfirmScreen}
-					>Close Enough!</button
-				></a
+				<button class="btn-big" style:background-color="green">Close Enough!</button></a
 			>
 		</div>
 	{/if}

@@ -36,6 +36,12 @@ class ImageProcessing {
 		if (!this.worker) this.load();
 		return this._dispatch({ msg: "imageProcessing", data });
 	}
+
+
+	getBoxes(data) {
+		if (!this.worker) this.load();
+		return this._dispatch({ msg: "imageProcessing", data, boxes: true });
+	}
 }
 
 export default new ImageProcessing();

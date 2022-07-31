@@ -4,6 +4,7 @@
 	export let width;
 	export let height;
 	export let context;
+	export let hide = false;
 
 	let videoEl;
 	let errorMessage;
@@ -41,7 +42,7 @@
 </script>
 
 <!-- svelte-ignore a11y-media-has-caption -->
-<video bind:this={videoEl} {width} {height} style="object-fit: cover;" />
+<video bind:this={videoEl} {width} {height} style:display={hide ? "none" : "block"} /> 
 
 {#if errorMessage}
 	<p style="color: red;">{errorMessage}</p>

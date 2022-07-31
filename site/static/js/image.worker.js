@@ -166,7 +166,7 @@ async function getOpenCV() {
 	return OPENCV_URL;
 }
 
-function imageProcessing({ msg, data, debug }) {
+function imageProcessing({ msg, data, debug, boxes }) {
 	const img = cv.matFromImageData(data);
 	if (debug) postMessage({ msg: "Original", imageData: imageDataFromMat(img) });
 
@@ -296,6 +296,25 @@ function imageProcessing({ msg, data, debug }) {
 	let sortedPoints = [];
 	let maxRowSize = null;
 
+	if (boxes) {
+		cv.cvtColor(workingImg, workingImg, cv.COLOR_GRAY2BGR); // convert from grayscale to rgb so we can add colored info ontop of the image
+		pointsToSearch.forEach((pt) => {
+			const rectBottomRightX = pt.boundingBox.x + pt.boundingBox.width;
+			const rectBottomRightY = pt.boundingBox.y + pt.boundingBox.height;
+
+			const topLeft = new cv.Point(pt.boundingBox.x, pt.boundingBox.y);
+			const bottomRight = new cv.Point(rectBottomRightX, rectBottomRightY);
+
+			cv.rectangle(workingImg, topLeft, bottomRight, color, 2, cv.LINE_AA, 0);
+		});
+		postMessage({ msg: "boxes", imageData: imageDataFromMat(workingImg) });
+		img.delete();
+		workingImg.delete();
+		originalGrayscaleImg.delete();
+		return; // exit function early
+	}
+
+
 	if (debug) {
 		cv.cvtColor(workingImg, workingImg, cv.COLOR_GRAY2BGR); // convert from grayscale to rgb so we can add colored info ontop of the image
 		pointsToSearch.forEach((pt) => {
@@ -322,7 +341,7 @@ function imageProcessing({ msg, data, debug }) {
 				payload: "Error: Could not sort points into rows.",
 			});
 			break;
-		} 
+		}
 
 		const boundingPointsSum = pointsToSearch
 			.map((pt) => ({ x: pt.x, y: pt.y, sum: pt.x + pt.y }))
