@@ -2,7 +2,7 @@
 	import solver from "$lib/services/solver";
 	import BoardGrid from "$lib/BoardGrid.svelte";
 	import { page } from "$app/stores";
-import Head from "../lib/Head.svelte";
+	import Head from "../lib/Head.svelte";
 
 	let board = $page.url.searchParams.get("board")
 		? $page.url.searchParams.get("board").toString().replace("%20", " ")
@@ -88,6 +88,10 @@ import Head from "../lib/Head.svelte";
 			just put q.
 		</p>
 		<input type="text" style:margin-bottom="20px" bind:value={board} />
+		<p style:margin-bottom="10px">Or</p>
+		<a href="/picture"
+			><button style:margin-bottom="20px" class="btn-small" type="button">Take a Picture 📷</button>
+		</a>
 		<button
 			class="btn-big"
 			disabled={!canSolve}
